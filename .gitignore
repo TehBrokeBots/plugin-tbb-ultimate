@@ -10,6 +10,12 @@
 *.userosscache
 *.sln.docstates
 *.env
+*.eliza
+*data
+*.elizadb-test
+*dist
+*node_modules
+
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
