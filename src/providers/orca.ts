@@ -1,19 +1,42 @@
-// Orca API Utility Functions
-// Docs: https://docs.orca.so/builder-documentation/orca-for-builders/integrations
+// src/providers/orca.ts
 
-import fetch from 'node-fetch';
+import axios from "axios";
 
-const ORCA_API = 'https://api.orca.so/v1/quote';
+const ORCA_POOLS_API = "https://api.orca.so/pools";
 
-export async function getOrcaQuote({
-  inputMint,
-  outputMint,
-  amount,
-  slippage = 0.5 // percent
-}) {
-  // amount: in smallest units
-  const url = `${ORCA_API}?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippage=${slippage}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Failed to fetch Orca quote');
-  return res.json();
+export interface PoolData {
+  tokenA: { mint: string; reserve: string };
+  tokenB: { mint: string; reserve: string };
+}
+
+export async function getPools(): Promise<PoolData[]> {
+  const resp = await axios.get(ORCA_POOLS_API);
+  return resp.data.pools as PoolData[];
+}
+
+export async function getPrice(
+  inputMint: string,
+  outputMint: string,
+): Promise<number | null> {
+  try {
+    const pools = await getPools();
+    const pool = pools.find(
+      (p) =>
+        (p.tokenA.mint === inputMint && p.tokenB.mint === outputMint) ||
+        (p.tokenA.mint === outputMint && p.tokenB.mint === inputMint),
+    );
+
+    if (!pool) return null;
+
+    const tokenAReserve = parseFloat(pool.tokenA.reserve);
+    const tokenBReserve = parseFloat(pool.tokenB.reserve);
+
+    if (pool.tokenA.mint === inputMint) {
+      return tokenBReserve / tokenAReserve;
+    } else {
+      return tokenAReserve / tokenBReserve;
+    }
+  } catch {
+    return null;
+  }
 }

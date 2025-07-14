@@ -1,44 +1,27 @@
-import * as coreActions from "./actions";
-import * as arbitrageStrategy from "./strategies/arbitrage";
-import * as daoStrategy from "./strategies/dao";
-import { Transaction, PublicKey, Connection } from "@solana/web3.js";
-import { keypair, getMintInfo, getTokenHolders } from "./providers/solana";
-import * as predictEvaluator from "./evaluators/predict";
-import * as pumpfunProvider from "./providers/pumpfun";
-import * as dexscreenerProvider from "./providers/dexscreener";
-import * as degenStrategy from "./strategies/degen";
-import * as safeStrategy from "./strategies/safe";
-import { getQuote, buildSwapTransaction } from "./providers/jupiter";
+// actions.ts: imports at top
 import {
-  calculateRSI,
-  calculateBollingerBands,
-  calculateMACD,
-} from "./providers/technicalindicators";
-import * as dotenv from "dotenv";
-import {
+  getTokenHolders as solanaGetTokenHolders,
+  keypair,
   sendTransaction,
-  getBalance,
+  connection,
+  getMintInfo,
   getParsedTokenAccounts,
+  getBalance,
 } from "./providers/solana";
+import { getQuote, buildSwapTransaction } from "./providers/jupiter";
 import { getTokenInfo } from "./providers/dexscreener";
 import axios from "axios";
+import * as dotenv from "dotenv";
+import { Transaction, PublicKey } from "@solana/web3.js";
+import {
+  calculateBollingerBands,
+  calculateMACD,
+  calculateRSI,
+} from "./technicalindicators";
+dotenv.config();
 
-// Explicitly export all strategy parameter types:
-export type { ArbitrageParams } from "./strategies/arbitrage";
-export type { DaoStrategyParams } from "./strategies/dao";
-export type { DegenParams } from "./strategies/degen";
-export type { SafeParams } from "./strategies/safe";
+dotenv.config();
 
-export const actions = {
-  ...coreActions,
-  ...arbitrageStrategy,
-  ...daoStrategy,
-  ...predictEvaluator,
-  ...pumpfunProvider,
-  ...dexscreenerProvider,
-  ...degenStrategy,
-  ...safeStrategy,
-};
 export type ActionContext = { [key: string]: any };
 
 const AUTO_TRADE_ENABLED = process.env.AUTO_TRADE_ENABLED === "true";
@@ -50,6 +33,7 @@ const AUTO_BUY_SELL_INTERVAL_MS = parseInt(
 let monitorInterval: ReturnType<typeof setTimeout> | null = null;
 let priceHistory: number[] = [];
 let autoBuySellInterval: ReturnType<typeof setTimeout> | null = null;
+
 interface DexscreenerData {
   pairs: Array<any>;
   [key: string]: any;
@@ -67,27 +51,23 @@ export async function swap(params: {
 }) {
   const { inputMint, outputMint, amount, slippageBps = 50 } = params;
 
-  // Step 1: Retrieval of quote for the swap
-  const quote = await getQuote(inputMint, outputMint, amount);
-
-  // Step 2: Build swap transaction, using your keypair
+  const quote = await getQuote(inputMint, outputMint, amount, slippageBps);
   const swapTransactionBase64 = await buildSwapTransaction(
     quote,
     keypair.publicKey.toBase58(),
   );
 
-  // Step 3: Decode transaction, partially sign it with the keypair
   const txnBuffer = Buffer.from(swapTransactionBase64, "base64");
   const txn = Transaction.from(txnBuffer);
+
   txn.partialSign(keypair);
 
-  // Step 4: Send transaction and return signature
   const signature = await sendTransaction(txn);
   return signature;
 }
 
 export async function buy(params: { tokenMint: string; amount: number }) {
-  const inputMint = "So11111111111111111111111111111111111111112";
+  const inputMint = "So11111111111111111111111111111111111111112"; // SOL
   return swap({
     inputMint,
     outputMint: params.tokenMint,
@@ -96,7 +76,7 @@ export async function buy(params: { tokenMint: string; amount: number }) {
 }
 
 export async function sell(params: { tokenMint: string; amount: number }) {
-  const outputMint = "So11111111111111111111111111111111111111112";
+  const outputMint = "So11111111111111111111111111111111111111112"; // SOL
   return swap({
     inputMint: params.tokenMint,
     outputMint,
@@ -178,7 +158,7 @@ export async function scamCheck(ctx: {
         reasons.push("Mint authority is not renounced.");
       }
 
-      holders = await getTokenHolders(address);
+      holders = await solanaGetTokenHolders(address);
       if (holders.length && mintInfo.supply) {
         const supply = Number(mintInfo.supply) / 10 ** (mintInfo.decimals ?? 0);
         const largest = holders[0];
@@ -349,7 +329,7 @@ export async function startPriceMonitor(params: {
 
   const tick = async () => {
     try {
-      // TODO: replace with real price fetching logic
+      // TODO: replace with real price fetching logic from Dexscreener
       const price = Math.random() * 100;
       priceHistory.push(price);
       if (priceHistory.length > 100) priceHistory.shift();

@@ -1,73 +1,95 @@
-// Solana RPC Utility Functions for Wallet Balances and Token Info
-// Uses public Solana RPC endpoint
+// src/providers/solana.ts
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  ParsedAccountData,
+} from "@solana/web3.js";
+import axios from "axios";
+import * as dotenv from "dotenv";
 
-import fetch from 'node-fetch';
+dotenv.config();
 
-const SOLANA_RPC = 'https://api.mainnet-beta.solana.com';
+const RPC_ENDPOINT =
+  process.env.SOLANA_RPC || "https://api.mainnet-beta.solana.com";
+export const connection = new Connection(RPC_ENDPOINT, "confirmed");
 
-export async function getSolBalance(walletAddress: string) {
-  const res = await fetch(SOLANA_RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'getBalance',
-      params: [walletAddress]
-    })
-  });
-  const data = await res.json();
-  if (!data.result) throw new Error('Failed to fetch SOL balance');
-  return data.result.value; // in lamports
+const secret = JSON.parse(process.env.PRIVATE_KEY!);
+export const keypair = Keypair.fromSecretKey(Uint8Array.from(secret));
+
+export async function sendTransaction(txn: Transaction): Promise<string> {
+  if (txn.instructions.length === 0) {
+    throw new Error("Transaction has no instructions");
+  }
+  txn.recentBlockhash = (
+    await connection.getLatestBlockhash("confirmed")
+  ).blockhash;
+  txn.feePayer = keypair.publicKey;
+  txn.partialSign(keypair);
+  const signature = await connection.sendRawTransaction(
+    txn.serialize({ verifySignatures: false }),
+  );
+  await connection.confirmTransaction(signature, "confirmed");
+  return signature;
 }
 
-export async function getSplTokenAccounts(walletAddress: string) {
-  const res = await fetch(SOLANA_RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'getTokenAccountsByOwner',
-      params: [walletAddress, { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' }, { encoding: 'jsonParsed' }]
-    })
+export async function getParsedTokenAccounts(ownerPubkey: PublicKey) {
+  const res = await connection.getParsedTokenAccountsByOwner(ownerPubkey, {
+    programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
   });
-  const data = await res.json();
-  if (!data.result) throw new Error('Failed to fetch SPL token accounts');
-  return data.result.value; // array of token accounts
+  return res.value;
 }
 
-export async function getMintInfo(mintAddress) {
-  // Returns mint authority and supply
-  const res = await fetch(SOLANA_RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'getAccountInfo',
-      params: [mintAddress, { encoding: 'jsonParsed' }]
-    })
-  });
-  const data = await res.json();
-  if (!data.result) throw new Error('Failed to fetch mint info');
-  const info = data.result.value?.data?.parsed?.info;
-  return info;
+export async function getBalance(pubkey: PublicKey): Promise<number> {
+  return connection.getBalance(pubkey, "confirmed");
 }
 
-export async function getTokenHolders(mintAddress) {
-  // Returns all token accounts for a mint (holders)
-  const res = await fetch(SOLANA_RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'getTokenLargestAccounts',
-      params: [mintAddress]
-    })
-  });
-  const data = await res.json();
-  if (!data.result) throw Error('Failed to fetch token holders');
-  return data.result.value; // array of { address, amount }
+export async function getMintInfo(tokenMint: string): Promise<{
+  mintAuthority: string | null;
+  supply: string;
+  decimals: number;
+}> {
+  const mintPubkey = new PublicKey(tokenMint);
+  const accountInfo = await connection.getParsedAccountInfo(
+    mintPubkey,
+    "confirmed",
+  );
+  if (!accountInfo.value) throw new Error("Mint account not found");
+
+  const parsed = (accountInfo.value.data as ParsedAccountData).parsed;
+  const info = parsed.info;
+
+  return {
+    mintAuthority: info.mintAuthority ?? null,
+    supply: info.supply,
+    decimals: info.decimals,
+  };
 }
+
+export async function getTokenHolders(
+  tokenMint: string,
+): Promise<{ address: string; amount: string }[]> {
+  try {
+    const url = `https://public-api.solscan.io/token/holders?tokenAddress=${tokenMint}&limit=10`;
+    const response = await axios.get(url);
+    if (!response.data || !response.data.data) return [];
+
+    return response.data.data.map((holder: any) => ({
+      address: holder.owner,
+      amount: holder.amount,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export const solana = {
+  connection,
+  keypair,
+  sendTransaction,
+  getParsedTokenAccounts,
+  getBalance,
+  getMintInfo,
+  getTokenHolders,
+};

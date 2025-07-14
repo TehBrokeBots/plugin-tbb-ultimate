@@ -1,36 +1,44 @@
-import { type IAgentRuntime, type Memory, type Provider, type ProviderResult, type State } from '@elizaos/core';
-import * as dexscreener from './providers/dexscreener';
-import * as pumpfun from './providers/pumpfun';
-import * as solana from './providers/solana';
+import {
+  type IAgentRuntime,
+  type Memory,
+  type Provider,
+  type ProviderResult,
+  type State,
+} from "@elizaos/core";
+import { dexscreener } from "./providers/dexscreener";
+import { pumpfun } from "./providers/pumpfun";
+import { solana } from "./providers/solana";
+import { PublicKey } from "@solana/web3.js";
 
 /**
  * Dexscreener Provider
  * Provides access to Dexscreener API for token and pair information
  */
 export const dexscreenerProvider: Provider = {
-  name: 'DEXSCREENER_PROVIDER',
-  description: 'Provides access to Dexscreener API for token and pair information',
+  name: "DEXSCREENER_PROVIDER",
+  description:
+    "Provides access to Dexscreener API for token and pair information",
 
   get: async (
     _runtime: IAgentRuntime,
     message: Memory,
-    _state: State | undefined
+    _state: State | undefined,
   ): Promise<ProviderResult> => {
     try {
       const { chain, address, query, type } = message.content as any;
-      
+
       let data: any = {};
-      
-      if (type === 'token' && chain && address) {
+
+      if (type === "token" && chain && address) {
         data = await dexscreener.getTokenInfo(chain, address);
-      } else if (type === 'pair' && chain && address) {
-        data = await dexscreener.getPairInfo(chain, address);
-      } else if (type === 'search' && query) {
+      } else if (type === "pair" && address) {
+        data = await dexscreener.getPairInfo(address);
+      } else if (type === "search" && query) {
         data = await dexscreener.searchToken(query);
       }
-      
+
       return {
-        text: 'Dexscreener data retrieved',
+        text: "Dexscreener data retrieved",
         values: {},
         data,
       };
@@ -49,32 +57,37 @@ export const dexscreenerProvider: Provider = {
  * Provides access to Pump.fun API for token creation and trading
  */
 export const pumpfunProvider: Provider = {
-  name: 'PUMPFUN_PROVIDER',
-  description: 'Provides access to Pump.fun API for token creation and trading',
+  name: "PUMPFUN_PROVIDER",
+  description: "Provides access to Pump.fun API for token creation and trading",
 
   get: async (
     _runtime: IAgentRuntime,
     message: Memory,
-    _state: State | undefined
+    _state: State | undefined,
   ): Promise<ProviderResult> => {
     try {
-      const { token, action, amount, wallet, name, symbol, supply } = message.content as any;
-      
+      const { token, action, amount, name, symbol, supply } =
+        message.content as any;
+
       let data: any = {};
-      
+
       if (token && !action) {
         // Get token data
-        data = await pumpfun.getPumpFunRealTimeData(token);
-      } else if (token && action && amount && wallet) {
+        data = await pumpfun.getPumpFunRealTimeTokens();
+      } else if (token && action && amount) {
         // Trade
-        data = await pumpfun.tradeOnPumpFun({ token, action, amount, wallet });
-      } else if (name && symbol && supply && wallet) {
+        data = await pumpfun.pumpFunTrade({ tokenMint: token, action, amount });
+      } else if (name && symbol && supply) {
         // Create token
-        data = await pumpfun.createPumpFunToken({ name, symbol, supply, wallet });
+        data = await pumpfun.createPumpFunToken({
+          name,
+          symbol,
+          initialSupply: supply,
+        });
       }
-      
+
       return {
-        text: 'Pump.fun data retrieved',
+        text: "Pump.fun data retrieved",
         values: {},
         data,
       };
@@ -93,24 +106,29 @@ export const pumpfunProvider: Provider = {
  * Provides access to Solana RPC API for wallet balances and token information
  */
 export const solanaProvider: Provider = {
-  name: 'SOLANA_PROVIDER',
-  description: 'Provides access to Solana RPC API for wallet balances and token information',
+  name: "SOLANA_PROVIDER",
+  description:
+    "Provides access to Solana RPC API for wallet balances and token information",
 
   get: async (
     _runtime: IAgentRuntime,
     message: Memory,
-    _state: State | undefined
+    _state: State | undefined,
   ): Promise<ProviderResult> => {
     try {
       const { walletAddress, mintAddress } = message.content as any;
-      
+
       let data: any = {};
-      
+
       if (walletAddress) {
         // Get wallet balances
-        const solBalance = await solana.getSolBalance(walletAddress);
-        const splTokens = await solana.getSplTokenAccounts(walletAddress);
-        
+        const solBalance = await solana.getBalance(
+          new PublicKey(walletAddress),
+        );
+        const splTokens = await solana.getParsedTokenAccounts(
+          new PublicKey(walletAddress),
+        );
+
         data = {
           solBalance,
           splTokens,
@@ -119,15 +137,15 @@ export const solanaProvider: Provider = {
         // Get token info
         const mintInfo = await solana.getMintInfo(mintAddress);
         const holders = await solana.getTokenHolders(mintAddress);
-        
+
         data = {
           mintInfo,
           holders,
         };
       }
-      
+
       return {
-        text: 'Solana data retrieved',
+        text: "Solana data retrieved",
         values: {},
         data,
       };

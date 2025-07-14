@@ -1,0 +1,164 @@
+{
+  "name": "ultimate-solana",
+  "version": "1.0.0",
+  "description": "Ultimate Solana token analysis, swap, scam detection, strategies and forecasting plugin.",
+  "author": "YourName <youremail@example.com>",
+  "license": "MIT",
+  "requires": [
+    "@elizaos/plugin-twitter"
+  ],
+  "actions": {
+    "swap": {
+      "description": "Swap tokens using Jupiter API (wallet required for signing)",
+      "inputs": {
+        "inputMint": {"type": "string"},
+        "outputMint": {"type": "string"},
+        "amount": {"type": "number"},
+        "slippageBps": {"type": "number", "optional": true}
+      },
+      "output": {"type": "string"}
+    },
+    "buy": {
+      "description": "Buy tokens using Jupiter API (wallet required for signing)",
+      "inputs": {
+        "tokenMint": {"type": "string"},
+        "amount": {"type": "number"}
+      },
+      "output": {"type": "string"}
+    },
+    "sell": {
+      "description": "Sell tokens using Jupiter API (wallet required for signing)",
+      "inputs": {
+        "tokenMint": {"type": "string"},
+        "amount": {"type": "number"}
+      },
+      "output": {"type": "string"}
+    },
+    "checkWalletBalance": {
+      "description": "Check SOL and SPL token balances for a wallet",
+      "inputs": {
+        "walletAddress": {"type": "string"}
+      },
+      "output": {"type": "object"}
+    },
+    "pumpFunTrade": {
+      "description": "Buy/sell tokens on Pump.fun (wallet signing/sending if transaction returned)",
+      "inputs": {
+        "tokenMint": {"type": "string"},
+        "action": {"type": "string", "enum": ["buy", "sell"]},
+        "amount": {"type": "number"}
+      },
+      "output": {"type": "string"}
+    },
+    "createPumpFunToken": {
+      "description": "Create a new token on Pump.fun (wallet signing/sending if transaction returned)",
+      "inputs": {
+        "name": {"type": "string"},
+        "symbol": {"type": "string"},
+        "initialSupply": {"type": "number"}
+      },
+      "output": {"type": "string"}
+    },
+    "getPumpFunData": {
+      "description": "Fetch real-time data for a Pump.fun token",
+      "inputs": {
+        "tokenMint": {"type": "string"}
+      },
+      "output": {"type": "object"}
+    },
+    "getDexscreenerData": {
+      "description": "Fetch token or pair data from DexScreener",
+      "inputs": {
+        "tokenMint": {"type": "string"}
+      },
+      "output": {"type": "object"}
+    },
+    "technicalAnalysis": {
+      "description": "Perform RSI, moving averages, Bollinger Bands analysis",
+      "inputs": {
+        "prices": {
+          "type": "array",
+          "items": {"type": "number"}
+        }
+      },
+      "output": {"type": "object"}
+    },
+    "portfolioTrackerAction": {
+      "description": "Track wallet portfolio value in SOL and USD",
+      "inputs": {
+        "walletAddress": {"type": "string"}
+      },
+      "output": {"type": "object"}
+    },
+    "marketTrends": {
+      "description": "Analyze 7-day price change, volume spikes, and trend",
+      "inputs": {
+        "chain": {"type": "string"},
+        "address": {"type": "string"}
+      },
+      "output": {"type": "object"}
+    },
+    "sentimentAnalysis": {
+      "description": "Analyze sentiment using Twitter plugin",
+      "inputs": {
+        "symbol": {"type": "string"}
+      },
+      "output": {"type": "object"}
+    },
+    "degenStrategy": {
+      "description": "Degen trading strategy using Pump.fun",
+      "inputs": {
+        "amount": {"type": "number"},
+        "stopLossPercent": {"type": "number"},
+        "takeProfitPercent": {"type": "number"},
+        "confirm": {"type": "function"}
+      },
+      "output": {"type": "string"}
+    },
+    "arbitrageStrategy": {
+      "description": "Arbitrage strategy across Jupiter, Orca and Raydium",
+      "inputs": {
+        "tokenMintA": {"type": "string"},
+        "tokenMintB": {"type": "string"},
+        "tradeAmountLamports": {"type": "number", "optional": true},
+        "stopLossPercent": {"type": "number", "optional": true},
+        "takeProfitPercent": {"type": "number", "optional": true},
+        "confirm": {"type": "function"}
+      },
+      "output": {"type": "object"}
+    },
+    "safeStrategy": {
+      "description": "Safe trading strategy for SOL and USDC tokens",
+      "inputs": {
+        "tokenMint": {"type": "string"},
+        "amount": {"type": "number"},
+        "stopLossPercent": {"type": "number"},
+        "takeProfitPercent": {"type": "number"},
+        "confirm": {"type": "function"}
+      },
+      "output": {"type": "string"}
+    },
+    "daoStrategy": {
+      "description": "Buy Pinecone DAO token with confirmation",
+      "inputs": {
+        "amount": {"type": "number"},
+        "confirm": {"type": "function"}
+      },
+      "output": {"type": "string"}
+    },
+    "startAutoBuySell": {
+      "description": "Start automatic recurring buy or sell trades",
+      "inputs": {
+        "tokenMint": {"type": "string"},
+        "action": {"type": "string", "enum": ["buy", "sell"]},
+        "amount": {"type": "number"}
+      },
+      "output": {"type": "string"}
+    },
+    "stopAutoBuySell": {
+      "description": "Stop automatic recurring buy/sell",
+      "inputs": {},
+      "output": {"type": "string"}
+    }
+  }
+}

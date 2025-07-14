@@ -1,103 +1,53 @@
 {
-  "name": "plugin-tbb-ultimate",
-  "description": "ElizaOS plugin for advanced crypto trading, portfolio tracking, technical analysis, and market prediction using Jupiter, Pump.fun, Dexscreener, and Twitter sentiment.",
-  "version": "0.1.0",
-  "type": "module",
+  "name": "ultimate-solana-plugin",
+  "version": "1.0.0",
   "main": "dist/index.js",
-  "module": "dist/index.js",
   "types": "dist/index.d.ts",
-  "packageType": "plugin",
-  "platform": "node",
-  "license": "MIT",
-  "author": "TehBrokeBots",
-  "keywords": [
-    "plugin",
-    "elizaos"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/TehBrokeBots/Teh-Broke_bots-Ultimate-Plugin"
-  },
-  "homepage": "https://elizaos.ai",
-  "bugs": {
-    "url": "https://github.com/TehBrokeBots/plugin-tbb-ultimate/issues"
-  },
-  "exports": {
-    "./package.json": "./package.json",
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
-    }
-  },
-  "files": [
-    "dist",
-    "README1.md",
-    ".npmignore",
-    "src",
-    "tests",
-    "package.json",
-    "tsup.config.ts"
-  ],
-  "dependencies": {
-    "@elizaos/core": "latest",
-    "@elizaos/plugin-bootstrap": "1.0.15",
-    "@elizaos/plugin-local-ai": "1.0.5",
-    "@solana/kit": "latest",
-    "@solana/web3.js": "^1.98.2",
-    "@tanstack/react-query": "^5.80.7",
-    "clsx": "^2.1.1",
-    "node-fetch": "^2.6.7",
-    "tailwind-merge": "^3.3.1",
-    "tailwindcss": "^4.1.10",
-    "vite": "^6.3.5",
-    "zod": "3.24.2"
-  },
-  "peerDependencies": {},
-  "devDependencies": {
-    "@cypress/react": "^9.0.1",
-    "@elizaos/cli": "latest",
-    "@elizaos/plugin-twitter": "1.0.13",
-    "@tailwindcss/vite": "^4.1.10",
-    "@testing-library/cypress": "^10.0.3",
-    "@vitejs/plugin-react-swc": "^3.10.2",
-    "cypress": "^14.4.1",
-    "dotenv": "16.4.5",
-    "prettier": "3.5.3",
-    "tailwindcss-animate": "^1.0.7",
-    "tsup": "8.5.0",
-    "typescript": "5.8.2"
-  },
   "scripts": {
     "start": "elizaos start",
-    "dev": "elizaos dev",
+    "dev": "vite",
     "build": "tsc --noEmit && vite build && tsup",
+    "build:types": "tsup src/index.ts --format esm,cjs --dts --out-dir dist",
     "lint": "prettier --write ./src",
-    "test:component": "bun run test:install && bun test",
-    "test:e2e": "bun run test:install && bun test",
-    "test:e2e:manual": "bun run test:install && node scripts/test-e2e-manual.js",
-    "test:cypress": "bun run test:install && cypress run --component",
-    "test": "bun run test:install && bun run test:component && bun run test:e2e",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "tsc --noEmit --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "test:install": "node scripts/install-test-deps.js",
-    "publish": "elizaos publish",
     "format": "prettier --write ./src",
-    "format:check": "prettier --check ./src"
+    "format:check": "prettier --check ./src",
+    "check-all": "npm run type-check && npm run format:check && npm run test",
+    "cy:open": "npm run test:install && cypress open",
+    "cy:run": "npm run test:install && cypress run --component",
+    "cy:test": "npm run test:install && cypress run --component --reporter spec",
+    "cypress:component": "npm run test:install && cypress run --component",
+    "cypress:e2e": "npm run test:install && cypress run --e2e",
+    "cypress:open": "npm run test:install && cypress open"
   },
-  "publishConfig": {
-    "access": "public"
+  "dependencies": {
+    "@elizaos/core": "^1.2.1",
+    "@jest/globals": "^30.0.4",
+    "@solana/web3.js": "^1.98.2",
+    "@types/node": "^24.0.13",
+    "autoprefixer": "^10.4.21",
+    "axios": "^1.10.0",
+    "dotenv": "^17.2.0",
+    "jest-environment-jsdom": "^30.0.4",
+    "postcss": "^8.5.6",
+    "prettier": "^3.6.2",
+    "tailwindcss": "^4.1.11",
+    "technicalindicators": "^3.0.12"
   },
-  "resolutions": {
-    "zod": "3.24.2"
-  },
-  "agentConfig": {
-    "pluginType": "elizaos:plugin:1.0.0",
-    "pluginParameters": {
-      "API_KEY": {
-        "type": "string",
-        "description": "API key for the service"
-      }
-    }
-  },
-  "gitHead": ""
+  "devDependencies": {
+    "@cypress/react": "^9.0.1",
+    "@tailwindcss/postcss": "^4.1.11",
+    "@testing-library/cypress": "^10.0.3",
+    "@types/jest": "^30.0.0",
+    "cypress": "^14.4.1",
+    "jest": "^30.0.4",
+    "tailwindcss-animate": "^1.0.7",
+    "ts-jest": "^29.4.0",
+    "typescript": "^5.8.3"
+  }
 }
