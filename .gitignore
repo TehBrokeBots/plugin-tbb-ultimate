@@ -15,8 +15,23 @@
 *.elizadb-test
 *dist
 *node_modules
-
-
+*.bashdrc
+*bun.lock
+*bunfig.toml
+*cypress.config.ts
+*index.html
+*jes.component.config.js
+*jest.config.js
+*jes.e2e.config.js
+*jest.setup.ts
+*jest.setup.js
+*package-lock.json
+*postcss.config.js
+*tailwind.config.js
+*tailwind.build.json
+*tsconfig.json
+*tsup.config.ts
+*vite.config.ts
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
