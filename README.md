@@ -143,10 +143,10 @@ Create a .env file with the following variables (refer to .env.example for forma
 
 ##💬 <b>Community</b>
 
- X: @TehBrokeBots https://x.com/TehBrokeBots
- Telegram: @TehBrokeBotCoin
- Discord: https://discord.gg/zeV236kW
- Dont forget to join our DAO on daos.fun https://daos.fun/AbD84YXFFGSDiJ8hQtNm8cdKyTBB4o3PGrEjLJ9gdaos to become an offical part of Teh Broke Bot Fam!
+* <b> X: @TehBrokeBots https://x.com/TehBrokeBots </b>
+* <b> Telegram: @TehBrokeBotCoin </b>
+* <b> Discord: https://discord.gg/zeV236kW </b>
+* <b> Join our DAO on daos.fun https://daos.fun/AbD84YXFFGSDiJ8hQtNm8cdKyTBB4o3PGrEjLJ9gdaos to become an offical part of Teh Broke Bot Fam! </b>
 
 ---------------------------
 
