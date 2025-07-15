@@ -28,14 +28,20 @@
 - **Portfolio Tracker**: `/portfolio_tracker` — Get wallet balances and USD value. Params: `walletAddress`
 - **Check Wallet Balance**: `/check_wallet_balance` — Quick SOL/token balance check. Params: `walletAddress`
 
+---
+
 ### 🛡️ **Risk & Scam Detection**
 - **Scam Check**: `/scam_check` — Analyze token for rug/scam risk using on-chain and Twitter data. Params: `chain`, `address`, `symbol?`
 - **Liquidity & Holder Analysis**: Built into scam check and portfolio tools.
+
+---
 
 ### 📈 **Analysis Tools**
 - **Sentiment Analysis**: `/sentiment_analysis` — Twitter/X sentiment for any symbol. Params: `symbol`
 - **Technical Analysis**: `/technical_analysis` — RSI, MACD, Bollinger Bands. Params: `prices[]`
 - **Market Trends**: `/market_trends` — 7-day price change, volume spikes, trend. Params: `chain`, `address`
+
+---
 
 ### 🤖 **Automated & Strategy Trading**
 - **Safe Strategy**: `/safe_strategy` — Trade SOL/USDC with stop loss/take profit. Params: `tokenMint`, `amount`, `stopLossPercent`, `takeProfitPercent`, `confirm`, `exitTo?`, `monitorIntervalSec?`
@@ -45,6 +51,8 @@
 - **Predictive Strategy**: `/predictive_strategy` — AI-powered Bullish/Bearish/Neutral Predictions. buy/sell any token based on Ai prediction with stop loss/take profit, auto-trading, and user confirmation for initial trade. Params: `tokenMint`, `symbol`, `amount`, `stopLossPercent`, `takeProfitPercent`, `confirm`, `autoTrade?`, `exitTo?`, `monitorIntervalSec?`
 - **Auto Buy/Sell**: `/start_auto_buy_sell` and `/stop_auto_buy_sell` — Start/stop recurring automated trades. Params: `tokenMint`, `action`, `amount`
 
+---
+
 ### 🧩 **Providers & Integrations**
 - **Solana**: On-chain data, wallet, and transaction utilities.
 - **Dexscreener**: Real-time price, liquidity, and volume for any token.
@@ -52,6 +60,8 @@
 - **Twitter**: Sentiment, scam detection, and social signals.
 - **Jupiter**: Best price routing for swaps and trades.
 - **Knowledge**: PDF and file-based knowledge for advanced queries.
+
+---
 
 ### 🧠 **How to Use**
 - **All actions are available via the ElizaOS agent API, Telegram, or Twitter (if enabled).**
@@ -81,10 +91,13 @@ Manual Setup (Local Plugin Use via Git)
 If the plugin is published to the ElizaOS Plugin Registry, install it by adding the plugin name to your agent character configuration:
 
 {
-  "name": "MyAgent",
+ "name": "MyAgent",
+ 
   "plugins": ["@elizaos/plugin-tbb-ultimate"],
+ 
   "settings": {
-    "tbb-ultimate": {
+  
+     "tbb-ultimate": {
       // plugin-specific settings go here
     },
     "secrets": {
@@ -99,6 +112,8 @@ If the plugin is published to the ElizaOS Plugin Registry, install it by adding 
 
 ElizaOS will auto-install and configure the plugin on agent startup.
 Be sure to configure required secrets in the "secrets" section.
+
+---
 
 ## <b>Notes</b>
 - For local manual installs, remember to restart your ElizaOS agent after adding the plugin and building.
@@ -131,7 +146,7 @@ Create a .env file with the following variables (refer to .env.example for forma
  X: @TehBrokeBots https://x.com/TehBrokeBots
  Telegram: @TehBrokeBotCoin
  Discord: https://discord.gg/zeV236kW
- And dont forget to join our DAO us on daos.fun https://daos.fun/AbD84YXFFGSDiJ8hQtNm8cdKyTBB4o3PGrEjLJ9gdaos and let your voice be heard! 
+ Dont forget to join our DAO on daos.fun https://daos.fun/AbD84YXFFGSDiJ8hQtNm8cdKyTBB4o3PGrEjLJ9gdaos to become an offical part of Teh Broke Bot Fam!
 
 ---------------------------
 
@@ -139,6 +154,8 @@ Create a .env file with the following variables (refer to .env.example for forma
 <p align="center"><b>   For Teh Broke Bot Fam </b></p>
   <p align="center"><b>          +        </b></p>                             
 <p align="center"><b>All Teh Broke Bots like me</b></p>
+
+---
 
 ##<b> 🧬 License</b>
 
