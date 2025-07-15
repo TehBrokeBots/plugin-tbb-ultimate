@@ -49,5 +49,44 @@
     "tailwindcss-animate": "^1.0.7",
     "ts-jest": "^29.4.0",
     "typescript": "^5.8.3"
+  },
+  "agentConfig": {
+    "actions": [
+      "swap",
+      "buy", 
+      "sell",
+      "checkWalletBalance",
+      "pumpFunTrade",
+      "createPumpFunToken",
+      "getPumpFunData",
+      "getDexscreenerData",
+      "technicalAnalysis",
+      "portfolioTrackerAction",
+      "marketTrends",
+      "sentimentAnalysis",
+      "degenStrategy",
+      "arbitrageStrategy",
+      "safeStrategy",
+      "daoStrategy",
+      "startAutoBuySell",
+      "stopAutoBuySell"
+    ],
+    "providers": [
+      "solana",
+      "jupiter",
+      "dexscreener",
+      "pumpfun",
+      "orca",
+      "raydium",
+      "technicalindicators"
+    ],
+    "evaluators": [
+      "predict"
+    ],
+    "models": ["gpt-4", "gpt-3.5-turbo", "claude-3"],
+    "services": [
+      "priceMonitor",
+      "autoBuySell"
+    ]
   }
 }

@@ -1,416 +1,566 @@
+import type { Plugin, IAgentRuntime, Action, Memory, HandlerCallback, Content } from "@elizaos/core";
 import * as coreActions from "./actions";
 import * as arbitrageStrategy from "./strategies/arbitrage";
 import * as daoStrategy from "./strategies/dao";
-import { Transaction, PublicKey, Connection } from "@solana/web3.js";
-import { keypair, getMintInfo, getTokenHolders } from "./providers/solana";
 import * as predictEvaluator from "./evaluators/predict";
-import * as pumpfunProvider from "./providers/pumpfun";
-import * as dexscreenerProvider from "./providers/dexscreener";
 import * as degenStrategy from "./strategies/degen";
 import * as safeStrategy from "./strategies/safe";
-import { getQuote, buildSwapTransaction } from "./providers/jupiter";
-import {
-  calculateRSI,
-  calculateBollingerBands,
-  calculateMACD,
-} from "./providers/technicalindicators";
-import * as dotenv from "dotenv";
-import {
-  sendTransaction,
-  getBalance,
-  getParsedTokenAccounts,
-} from "./providers/solana";
-import { getTokenInfo } from "./providers/dexscreener";
-import axios from "axios";
+import * as predictiveStrategy from "./strategies/predictive";
+import { dexscreenerProvider, pumpfunProvider, solanaProvider } from "./providers";
+import { logger } from "@elizaos/core";
 
-// Explicitly export all strategy parameter types:
+// Export types
 export type { ArbitrageParams } from "./strategies/arbitrage";
 export type { DaoStrategyParams } from "./strategies/dao";
 export type { DegenParams } from "./strategies/degen";
 export type { SafeParams } from "./strategies/safe";
 
-export const actions = {
-  ...coreActions,
-  ...arbitrageStrategy,
-  ...daoStrategy,
-  ...predictEvaluator,
-  ...pumpfunProvider,
-  ...dexscreenerProvider,
-  ...degenStrategy,
-  ...safeStrategy,
-};
-export type ActionContext = { [key: string]: any };
-
-const AUTO_TRADE_ENABLED = process.env.AUTO_TRADE_ENABLED === "true";
-const AUTO_BUY_SELL_INTERVAL_MS = parseInt(
-  process.env.AUTO_BUY_SELL_INTERVAL_MS || "60000",
-  10,
-);
-
-let monitorInterval: ReturnType<typeof setTimeout> | null = null;
-let priceHistory: number[] = [];
-let autoBuySellInterval: ReturnType<typeof setTimeout> | null = null;
-interface DexscreenerData {
-  pairs: Array<any>;
-  [key: string]: any;
-}
-
-function isDexscreenerData(data: any): data is DexscreenerData {
-  return data && Array.isArray(data.pairs);
-}
-
-export async function swap(params: {
-  inputMint: string;
-  outputMint: string;
-  amount: number;
-  slippageBps?: number;
-}) {
-  const { inputMint, outputMint, amount, slippageBps = 50 } = params;
-
-  // Step 1: Retrieval of quote for the swap
-  const quote = await getQuote(inputMint, outputMint, amount);
-
-  // Step 2: Build swap transaction, using your keypair
-  const swapTransactionBase64 = await buildSwapTransaction(
-    quote,
-    keypair.publicKey.toBase58(),
-  );
-
-  // Step 3: Decode transaction, partially sign it with the keypair
-  const txnBuffer = Buffer.from(swapTransactionBase64, "base64");
-  const txn = Transaction.from(txnBuffer);
-  txn.partialSign(keypair);
-
-  // Step 4: Send transaction and return signature
-  const signature = await sendTransaction(txn);
-  return signature;
-}
-
-export async function buy(params: { tokenMint: string; amount: number }) {
-  const inputMint = "So11111111111111111111111111111111111111112";
-  return swap({
-    inputMint,
-    outputMint: params.tokenMint,
-    amount: params.amount,
-  });
-}
-
-export async function sell(params: { tokenMint: string; amount: number }) {
-  const outputMint = "So11111111111111111111111111111111111111112";
-  return swap({
-    inputMint: params.tokenMint,
-    outputMint,
-    amount: params.amount,
-  });
-}
-
-export async function checkWalletBalance(params: { walletAddress: string }) {
-  const owner = new PublicKey(params.walletAddress);
-  const solBalanceLamports = await getBalance(owner);
-  const solBalance = solBalanceLamports / 1e9;
-
-  const tokenAccounts = await getParsedTokenAccounts(owner);
-
-  const balances = tokenAccounts.map(({ pubkey, account }) => {
-    const parsed = account.data.parsed.info;
-    return {
-      mint: parsed.mint,
-      amount: parsed.tokenAmount.uiAmount,
-      decimals: parsed.tokenAmount.decimals,
-      pubkey: pubkey.toBase58(),
-    };
-  });
-
-  return {
-    sol: solBalance,
-    tokens: balances,
-  };
-}
-
-export async function scamCheck(ctx: {
-  chain: string;
-  address: string;
-  symbol?: string;
-  plugins?: Record<string, any>;
-}) {
-  const { chain, address, symbol, plugins } = ctx;
-  if (!chain || !address) return "Missing chain or address.";
-
-  try {
-    const data = await getTokenInfo(chain, address);
-    if (!isDexscreenerData(data)) {
-      return `Failed to get token info: ${data.error ?? "unknown error"}`;
-    }
-
-    const pair = data.pairs[0];
-    let risk = "unknown";
-    const reasons: string[] = [];
-
-    if (pair) {
-      if (pair.verified === false) {
-        risk = "high";
-        reasons.push("Token is not verified on Dexscreener.");
-      }
-      if ((pair.liquidity?.usd ?? 0) < 1000) {
-        risk = "high";
-        reasons.push("Low liquidity.");
-      }
-      if ((pair.txns?.h24 ?? 0) < 10) {
-        risk = risk === "high" ? risk : "medium";
-        reasons.push("Low trading activity.");
-      }
-      if ((pair.ageDays ?? 9999) < 3) {
-        risk = risk === "high" ? risk : "medium";
-        reasons.push("Token is very new.");
-      }
-    }
-
-    let mintInfo, holders;
+// Create Action objects from existing functions
+const swapAction: Action = {
+  name: "SWAP",
+  description: "Swap tokens using Jupiter API (wallet required for signing)",
+  
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    const content = message.content as any;
+    return content && content.inputMint && content.outputMint && content.amount;
+  },
+  
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state: any,
+    options: any
+  ) => {
     try {
-      mintInfo = await getMintInfo(address);
-      if (
-        mintInfo.mintAuthority &&
-        mintInfo.mintAuthority !== null &&
-        mintInfo.mintAuthority !== "" &&
-        mintInfo.mintAuthority !== "11111111111111111111111111111111"
-      ) {
-        risk = "high";
-        reasons.push("Mint authority is not renounced.");
-      }
-
-      holders = await getTokenHolders(address);
-      if (holders.length && mintInfo.supply) {
-        const supply = Number(mintInfo.supply) / 10 ** (mintInfo.decimals ?? 0);
-        const largest = holders[0];
-        const largestPct = (Number(largest.amount) / supply) * 100;
-        if (largestPct > 30) {
-          risk = "high";
-          reasons.push("Single wallet holds more than 30% of supply.");
-        } else if (largestPct > 10) {
-          risk = risk === "high" ? risk : "medium";
-          reasons.push("Single wallet holds more than 10% of supply.");
-        }
-      }
-    } catch {
-      // silent fail
-    }
-
-    let scamMentions = 0;
-    if (symbol && plugins && plugins["elizaos/plugin-twitter"]) {
-      const tweets = await plugins["elizaos/plugin-twitter"].searchTweets({
-        q: `${symbol} scam`,
-        count: 20,
+      const content = message.content as any;
+      const result = await coreActions.swap({
+        inputMint: content.inputMint,
+        outputMint: content.outputMint,
+        amount: content.amount,
+        slippageBps: content.slippageBps || 50
       });
-      scamMentions = tweets.filter((t: any) =>
-        /scam|rug|fraud|hack/i.test(t.text),
-      ).length;
-      if (scamMentions > 2) {
-        risk = "high";
-        reasons.push("Multiple scam-related Twitter mentions.");
-      }
+      
+      return {
+        success: true,
+        text: `Swap executed successfully! Transaction signature: ${result}`,
+        data: { signature: result },
+        actions: ["SWAP"]
+      };
+    } catch (error) {
+      return {
+        success: false,
+        text: `Swap failed: ${(error as Error).message}`,
+        actions: ["SWAP"]
+      };
     }
+  },
+  
+  examples: [
+    [
+      { name: "user", content: { text: "I want to swap 1 SOL for USDC" } },
+      { name: "assistant", content: { text: "Swap executed successfully! Transaction signature: ...", actions: ["SWAP"] } }
+    ]
+  ]
+};
 
-    const lockers = [
-      "11111111111111111111111111111111",
-      "4ckmDgGz5qQh6vny1tRQAMf6Tx5Rk8QeYv1GZ6tMCp7y",
-    ];
-    if (holders && holders.length > 0) {
-      const largest = holders[0];
-      if (lockers.includes(largest.address)) {
-        reasons.push("Liquidity appears to be locked.");
-      } else {
-        reasons.push("Liquidity may not be locked.");
-      }
-    }
-
-    if (risk === "unknown") risk = "low";
-
-    return {
-      message: "Scam check completed.",
-      risk,
-      reasons,
-      scamMentions,
-    };
-  } catch (e) {
-    return `Failed scam check: ${(e as Error).message}`;
-  }
-}
-
-export async function sentimentAnalysis(params: { symbol: string }) {
-  try {
-    const resp = await axios.get(
-      `http://localhost:3000/plugin-twitter/sentiment?symbol=${params.symbol}`,
-    );
-    return resp.data;
-  } catch {
-    return { bullish: 50, bearish: 25, neutral: 25 };
-  }
-}
-
-export async function portfolioTracker(ctx: ActionContext) {
-  const { walletAddress } = ctx;
-  if (!walletAddress) return "Missing walletAddress.";
-
-  try {
-    const solBalanceLamports = await getBalance(new PublicKey(walletAddress));
-    const solBalance = solBalanceLamports / 1e9;
-
-    const splTokens = await getParsedTokenAccounts(
-      new PublicKey(walletAddress),
-    );
-    const solInfo = await getTokenInfo(
-      "solana",
-      "So11111111111111111111111111111111111111112",
-    );
-
-    if (!isDexscreenerData(solInfo)) return "Failed to get SOL token info.";
-
-    const solPrice = Number(solInfo.pairs[0]?.priceUsd ?? 0);
-
-    const tokens = await Promise.all(
-      splTokens.map(async (acct: any) => {
-        const mint = acct.account.data.parsed.info.mint;
-        const amount = Number(
-          acct.account.data.parsed.info.tokenAmount.uiAmount,
-        );
-        let price = 0;
-        try {
-          const info = await getTokenInfo("solana", mint);
-          price = isDexscreenerData(info)
-            ? Number(info.pairs[0]?.priceUsd ?? 0)
-            : 0;
-        } catch {}
-        return { mint, amount, price, valueUsd: amount * price };
-      }),
-    );
-
-    const solValue = solBalance * solPrice;
-    const totalValueUsd =
-      solValue + tokens.reduce((sum, t) => sum + t.valueUsd, 0);
-
-    return {
-      message: "Portfolio tracked successfully.",
-      sol: { amount: solBalance, price: solPrice, valueUsd: solValue },
-      tokens,
-      totalValueUsd,
-    };
-  } catch (e) {
-    return `Failed to track portfolio: ${(e as Error).message}`;
-  }
-}
-
-export async function marketTrends(ctx: ActionContext) {
-  const { chain, address } = ctx;
-  if (!chain || !address) return "Missing chain or address.";
-
-  try {
-    const data = await getTokenInfo(chain, address);
-    if (!isDexscreenerData(data)) {
-      return `Failed to get token info: ${data.error ?? "unknown error"}`;
-    }
-
-    const priceChart = data.pairs[0]?.priceChart ?? [];
-    if (priceChart.length < 8)
-      return "Not enough price history for trend analysis.";
-
-    const priceNow = Number(priceChart[priceChart.length - 1].price);
-    const price7dAgo = Number(priceChart[priceChart.length - 8].price);
-    const priceChange7d = ((priceNow - price7dAgo) / price7dAgo) * 100;
-
-    const volumes = priceChart.map((p: any) => Number(p.volume));
-    const avgPrev5 = volumes.slice(-7, -2).reduce((a, b) => a + b, 0) / 5;
-    const last2 = volumes.slice(-2);
-    const volumeSpike = last2.some((v) => v > avgPrev5 * 2);
-
-    let trend = "sideways";
-    if (priceChange7d > 10) trend = "uptrend";
-    else if (priceChange7d < -10) trend = "downtrend";
-
-    return {
-      message: "Market trends analyzed.",
-      priceChange7d,
-      volumeSpike,
-      trend,
-    };
-  } catch (e) {
-    return `Failed to analyze market trends: ${(e as Error).message}`;
-  }
-}
-
-export async function startPriceMonitor(params: {
-  tokenMint: string;
-  intervalSec: number;
-  onTick?: (data: any) => void;
-}) {
-  const { intervalSec, onTick } = params;
-
-  if (monitorInterval) clearInterval(monitorInterval);
-  priceHistory = [];
-
-  const tick = async () => {
+const buyAction: Action = {
+  name: "BUY",
+  description: "Buy tokens using Jupiter API (wallet required for signing)",
+  
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    const content = message.content as any;
+    return content && content.tokenMint && content.amount;
+  },
+  
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state: any,
+    options: any
+  ) => {
     try {
-      // TODO: replace with real price fetching logic
-      const price = Math.random() * 100;
-      priceHistory.push(price);
-      if (priceHistory.length > 100) priceHistory.shift();
-
-      const rsi = calculateRSI(priceHistory);
-      const macd = calculateMACD(priceHistory);
-      const bb = calculateBollingerBands(priceHistory);
-
-      const quickSignal =
-        rsi !== null ? (rsi < 30 ? "BUY" : rsi > 70 ? "SELL" : "HOLD") : "HOLD";
-
-      if (onTick) onTick({ price, rsi, macd, bb, quickSignal });
-    } catch {
-      // ignore silently
+      const content = message.content as any;
+      const result = await coreActions.buy({
+        tokenMint: content.tokenMint,
+        amount: content.amount
+      });
+      
+      return {
+        success: true,
+        text: `Buy order executed successfully! Transaction signature: ${result}`,
+        data: { signature: result },
+        actions: ["BUY"]
+      };
+    } catch (error) {
+      return {
+        success: false,
+        text: `Buy order failed: ${(error as Error).message}`,
+        actions: ["BUY"]
+      };
     }
-  };
+  },
+  
+  examples: [
+    [
+      { name: "user", content: { text: "I want to buy 1000 tokens" } },
+      { name: "assistant", content: { text: "Buy order executed successfully! Transaction signature: ...", actions: ["BUY"] } }
+    ]
+  ]
+};
 
-  await tick();
-  monitorInterval = setInterval(tick, intervalSec * 1000);
-}
-
-export async function stopPriceMonitor() {
-  if (monitorInterval) {
-    clearInterval(monitorInterval);
-    monitorInterval = null;
-  }
-}
-
-export function startAutoBuySell(params: {
-  tokenMint: string;
-  action: "buy" | "sell";
-  amount: number;
-}) {
-  if (!AUTO_TRADE_ENABLED) return "Automated trading disabled";
-  if (autoBuySellInterval) clearInterval(autoBuySellInterval);
-
-  const tradeFn = async () => {
+const sellAction: Action = {
+  name: "SELL",
+  description: "Sell tokens using Jupiter API (wallet required for signing)",
+  
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    const content = message.content as any;
+    return content && content.tokenMint && content.amount;
+  },
+  
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state: any,
+    options: any
+  ) => {
     try {
-      if (params.action === "buy") {
-        await buy({ tokenMint: params.tokenMint, amount: params.amount });
-      } else {
-        await sell({ tokenMint: params.tokenMint, amount: params.amount });
-      }
-      console.log(
-        `Auto ${params.action} executed for ${params.tokenMint} amount: ${params.amount}`,
-      );
-    } catch (e) {
-      console.error(`Auto ${params.action} failed:`, e);
+      const content = message.content as any;
+      const result = await coreActions.sell({
+        tokenMint: content.tokenMint,
+        amount: content.amount
+      });
+      
+      return {
+        success: true,
+        text: `Sell order executed successfully! Transaction signature: ${result}`,
+        data: { signature: result },
+        actions: ["SELL"]
+      };
+    } catch (error) {
+      return {
+        success: false,
+        text: `Sell order failed: ${(error as Error).message}`,
+        actions: ["SELL"]
+      };
     }
-  };
+  },
+  
+  examples: [
+    [
+      { name: "user", content: { text: "I want to sell 500 tokens" } },
+      { name: "assistant", content: { text: "Sell order executed successfully! Transaction signature: ...", actions: ["SELL"] } }
+    ]
+  ]
+};
 
-  tradeFn();
-  autoBuySellInterval = setInterval(tradeFn, AUTO_BUY_SELL_INTERVAL_MS);
-  return "Automated buy/sell started";
+const checkWalletBalanceAction: Action = {
+  name: "CHECK_WALLET_BALANCE",
+  description: "Check SOL and SPL token balances for a wallet",
+  
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    const content = message.content as any;
+    return content && content.walletAddress;
+  },
+  
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state: any,
+    options: any
+  ) => {
+    try {
+      const content = message.content as any;
+      const result = await coreActions.checkWalletBalance({
+        walletAddress: content.walletAddress
+      });
+      
+      return {
+        success: true,
+        text: `Wallet balance: ${result.sol} SOL and ${result.tokens.length} token types`,
+        data: result,
+        actions: ["CHECK_WALLET_BALANCE"]
+      };
+    } catch (error) {
+      return {
+        success: false,
+        text: `Failed to check wallet balance: ${(error as Error).message}`,
+        actions: ["CHECK_WALLET_BALANCE"]
+      };
+    }
+  },
+  
+  examples: [
+    [
+      { name: "user", content: { text: "Check my wallet balance" } },
+      { name: "assistant", content: { text: "Wallet balance: 1.5 SOL and 3 token types", actions: ["CHECK_WALLET_BALANCE"] } }
+    ]
+  ]
+};
+
+const scamCheckAction: Action = {
+  name: "SCAM_CHECK",
+  description: "Analyze token risk using on-chain and social signals",
+  
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    const content = message.content as any;
+    return content && content.chain && content.address;
+  },
+  
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state: any,
+    options: any
+  ) => {
+    try {
+      const content = message.content as any;
+      const result = await coreActions.scamCheck({
+        chain: content.chain,
+        address: content.address,
+        symbol: content.symbol,
+        plugins: options?.plugins
+      });
+      
+      return {
+        success: true,
+        text: typeof result === 'string' ? result : result.message,
+        data: typeof result === 'object' ? result : undefined,
+        actions: ["SCAM_CHECK"]
+      };
+    } catch (error) {
+      return {
+        success: false,
+        text: `Scam check failed: ${(error as Error).message}`,
+        actions: ["SCAM_CHECK"]
+      };
+    }
+  },
+  
+  examples: [
+    [
+      { name: "user", content: { text: "Check if this token is a scam" } },
+      { name: "assistant", content: { text: "Scam check completed. Risk: low", actions: ["SCAM_CHECK"] } }
+    ]
+  ]
+};
+
+const sentimentAnalysisAction: Action = {
+  name: "SENTIMENT_ANALYSIS",
+  description: "Analyze sentiment using Twitter plugin",
+  
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    const content = message.content as any;
+    return content && content.symbol;
+  },
+  
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state: any,
+    options: any
+  ) => {
+    try {
+      const content = message.content as any;
+      const result = await coreActions.sentimentAnalysis({
+        symbol: content.symbol
+      });
+      
+      return {
+        success: true,
+        text: `Sentiment analysis for ${content.symbol}: ${result.bullish}% bullish, ${result.bearish}% bearish, ${result.neutral}% neutral`,
+        data: result,
+        actions: ["SENTIMENT_ANALYSIS"]
+      };
+    } catch (error) {
+      return {
+        success: false,
+        text: `Sentiment analysis failed: ${(error as Error).message}`,
+        actions: ["SENTIMENT_ANALYSIS"]
+      };
+    }
+  },
+  
+  examples: [
+    [
+      { name: "user", content: { text: "Analyze sentiment for SOL" } },
+      { name: "assistant", content: { text: "Sentiment analysis for SOL: 60% bullish, 20% bearish, 20% neutral", actions: ["SENTIMENT_ANALYSIS"] } }
+    ]
+  ]
+};
+
+const arbitrageStrategyAction: Action = {
+  name: "ARBITRAGE_STRATEGY",
+  description: "Arbitrage strategy across Jupiter, Orca and Raydium",
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    const c = message.content as any;
+    return c && c.tokenMintA && c.tokenMintB && c.confirm;
+  },
+  handler: async (runtime: IAgentRuntime, message: Memory, state: any, options: any) => {
+    const c = message.content as any;
+    const result = await arbitrageStrategy.arbitrageStrategy({
+      tokenMintA: c.tokenMintA,
+      tokenMintB: c.tokenMintB,
+      tradeAmountLamports: c.tradeAmountLamports,
+      stopLossPercent: c.stopLossPercent,
+      takeProfitPercent: c.takeProfitPercent,
+      confirm: c.confirm,
+      exitTo: c.exitTo,
+      monitorIntervalSec: c.monitorIntervalSec,
+    });
+    return { 
+      success: true,
+      text: JSON.stringify(result), 
+      data: typeof result === 'string' ? { result } : result, 
+      actions: ["ARBITRAGE_STRATEGY"] 
+    };
+  },
+  examples: [
+    [
+      { name: "user", content: { text: "Arbitrage between SOL and USDC" } },
+      { name: "assistant", content: { text: "{\"arbitrageOpportunity\":true,...}", actions: ["ARBITRAGE_STRATEGY"] } }
+    ]
+  ]
+};
+
+const daoStrategyAction: Action = {
+  name: "DAO_STRATEGY",
+  description: "Buy Pinecone DAO token with confirmation",
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    const c = message.content as any;
+    return c && c.amount && c.confirm;
+  },
+  handler: async (runtime: IAgentRuntime, message: Memory, state: any, options: any) => {
+    const c = message.content as any;
+    const result = await daoStrategy.daoStrategy({
+      amount: c.amount,
+      confirm: c.confirm,
+      exitTo: c.exitTo,
+      monitorIntervalSec: c.monitorIntervalSec,
+    });
+    return { 
+      success: true,
+      text: JSON.stringify(result), 
+      data: typeof result === 'string' ? { result } : result, 
+      actions: ["DAO_STRATEGY"] 
+    };
+  },
+  examples: [
+    [
+      { name: "user", content: { text: "Buy DAO token" } },
+      { name: "assistant", content: { text: "\"DAO token purchase executed. Tx signature: ...\"", actions: ["DAO_STRATEGY"] } }
+    ]
+  ]
+};
+
+const degenStrategyAction: Action = {
+  name: "DEGEN_STRATEGY",
+  description: "Degen trading strategy using Pump.fun",
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    const c = message.content as any;
+    return c && c.amount && c.stopLossPercent && c.takeProfitPercent && c.confirm;
+  },
+  handler: async (runtime: IAgentRuntime, message: Memory, state: any, options: any) => {
+    const c = message.content as any;
+    const result = await degenStrategy.degenStrategy({
+      amount: c.amount,
+      stopLossPercent: c.stopLossPercent,
+      takeProfitPercent: c.takeProfitPercent,
+      confirm: c.confirm,
+      exitTo: c.exitTo,
+      monitorIntervalSec: c.monitorIntervalSec,
+    });
+    return { 
+      success: true,
+      text: JSON.stringify(result), 
+      data: typeof result === 'string' ? { result } : result, 
+      actions: ["DEGEN_STRATEGY"] 
+    };
+  },
+  examples: [
+    [
+      { name: "user", content: { text: "Degen trade" } },
+      { name: "assistant", content: { text: "\"Degen trade executed. Tx signature: ...\"", actions: ["DEGEN_STRATEGY"] } }
+    ]
+  ]
+};
+
+const safeStrategyAction: Action = {
+  name: "SAFE_STRATEGY",
+  description: "Safe trading strategy for SOL and USDC tokens",
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    const c = message.content as any;
+    return c && c.tokenMint && c.amount && c.stopLossPercent && c.takeProfitPercent && c.confirm;
+  },
+  handler: async (runtime: IAgentRuntime, message: Memory, state: any, options: any) => {
+    const c = message.content as any;
+    const result = await safeStrategy.safeStrategy({
+      tokenMint: c.tokenMint,
+      amount: c.amount,
+      stopLossPercent: c.stopLossPercent,
+      takeProfitPercent: c.takeProfitPercent,
+      confirm: c.confirm,
+      exitTo: c.exitTo,
+      monitorIntervalSec: c.monitorIntervalSec,
+    });
+    return { 
+      success: true,
+      text: JSON.stringify(result), 
+      data: typeof result === 'string' ? { result } : result, 
+      actions: ["SAFE_STRATEGY"] 
+    };
+  },
+  examples: [
+    [
+      { name: "user", content: { text: "Safe trade" } },
+      { name: "assistant", content: { text: "\"Safe trade completed. Tx signature: ...\"", actions: ["SAFE_STRATEGY"] } }
+    ]
+  ]
+};
+
+const predictiveStrategyAction: Action = {
+  name: "PREDICTIVE_STRATEGY",
+  description: "Predictive trading strategy using AI to buy or sell any token via Jupiter, with stop loss/take profit and automated trading option.",
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    const c = message.content as any;
+    return c && c.tokenMint && c.symbol && c.amount && c.stopLossPercent && c.takeProfitPercent && c.confirm;
+  },
+  handler: async (runtime: IAgentRuntime, message: Memory, state: any, options: any) => {
+    const c = message.content as any;
+    const result = await predictiveStrategy.predictiveStrategy({
+      tokenMint: c.tokenMint,
+      symbol: c.symbol,
+      amount: c.amount,
+      stopLossPercent: c.stopLossPercent,
+      takeProfitPercent: c.takeProfitPercent,
+      confirm: c.confirm,
+      autoTrade: c.autoTrade,
+      exitTo: c.exitTo,
+      monitorIntervalSec: c.monitorIntervalSec,
+    });
+    return {
+      success: true,
+      text: typeof result === 'string' ? result : JSON.stringify(result),
+      data: result,
+      actions: ["PREDICTIVE_STRATEGY"]
+    };
+  },
+  examples: [
+    [
+      { name: "user", content: { text: "Predictive trade for token XYZ" } },
+      { name: "assistant", content: { text: '{"message": "Trade executed: LONG. Tx signature: ..."}', actions: ["PREDICTIVE_STRATEGY"] } }
+    ]
+  ]
+};
+
+// Ensure all actions have similes and examples arrays
+function ensureActionFields(action: Action): Action {
+  if (!('similes' in action)) (action as any).similes = [];
+  if (!('examples' in action)) (action as any).examples = [];
+  return action;
 }
 
-export function stopAutoBuySell() {
-  if (autoBuySellInterval) {
-    clearInterval(autoBuySellInterval);
-    autoBuySellInterval = null;
-    return "Automated buy/sell stopped";
+const actions: Action[] = [
+  ensureActionFields(swapAction),
+  ensureActionFields(buyAction),
+  ensureActionFields(sellAction),
+  ensureActionFields(checkWalletBalanceAction),
+  ensureActionFields(scamCheckAction),
+  ensureActionFields(sentimentAnalysisAction),
+  ensureActionFields(arbitrageStrategyAction),
+  ensureActionFields(daoStrategyAction),
+  ensureActionFields(degenStrategyAction),
+  ensureActionFields(safeStrategyAction),
+  ensureActionFields(predictiveStrategyAction),
+];
+
+const providers = [
+  solanaProvider,
+  pumpfunProvider,
+  dexscreenerProvider,
+];
+
+// Ensure SCAM_CHECK_PROVIDER is present
+if (!providers.find((p) => p.name === "SCAM_CHECK_PROVIDER")) {
+  const scamCheckProvider = require("./providers/scam-check").scamCheckProvider;
+  providers.push(scamCheckProvider);
+}
+
+// Remove duplicate scamCheckAction declaration and patch only once
+const scamCheckActionIdx = actions.findIndex((a) => a.name === "SCAM_CHECK");
+if (scamCheckActionIdx !== -1) {
+  actions[scamCheckActionIdx].similes = ["TOKEN_RISK_ANALYSIS", "CHECK_TOKEN_HEALTH"];
+  actions[scamCheckActionIdx].examples = [
+    [
+      { name: "User", content: { text: "Is this token safe?" } },
+      { name: "Teh Broke Bot", content: { text: "I'll check if this token is safe using my scam checker.", actions: ["SCAM_CHECK"] } },
+    ],
+  ];
+}
+
+const models = {
+  TEXT_SMALL: async () => "ULTIMATE-SOLANA: TEXT_SMALL stub",
+  TEXT_LARGE: async () => "ULTIMATE-SOLANA: TEXT_LARGE stub",
+};
+
+const routes = [
+  {
+    name: "healthcheck",
+    path: "/ultimate-solana/health",
+    type: "GET" as const,
+    handler: async (_req: any, res: any) => {
+      res.json({ message: "Ultimate Solana Plugin is healthy." });
+    },
+  },
+];
+
+const events = {
+  MESSAGE_RECEIVED: [async (params: Record<string, any>) => console.info("MESSAGE_RECEIVED", Object.keys(params))],
+  VOICE_MESSAGE_RECEIVED: [async (params: Record<string, any>) => console.info("VOICE_MESSAGE_RECEIVED", Object.keys(params))],
+  WORLD_CONNECTED: [async (params: Record<string, any>) => console.info("WORLD_CONNECTED", Object.keys(params))],
+  WORLD_JOINED: [async (params: Record<string, any>) => console.info("WORLD_JOINED", Object.keys(params))],
+};
+
+// Patch event handlers to call logger.info with event name and params as separate arguments
+const eventNames = ["MESSAGE_RECEIVED", "VOICE_MESSAGE_RECEIVED", "WORLD_CONNECTED", "WORLD_JOINED"] as const;
+eventNames.forEach((eventName) => {
+  type EventKey = keyof typeof events;
+  const key = eventName as EventKey;
+  if (Array.isArray(events[key])) {
+    events[key] = (events[key] as ((params: Record<string, any>) => Promise<void>)[]).map((handler) => async (params: Record<string, any>) => {
+      logger.info(eventName, params);
+      return await handler(params);
+    });
   }
-  return "No active automated buy/sell task";
+});
+
+// Patch action handlers for error logging using logger from '@elizaos/core'
+for (const action of actions) {
+  const origHandler = action.handler;
+  if (typeof origHandler === "function") {
+    action.handler = async function (...args: [IAgentRuntime, Memory, any?, any?, HandlerCallback?, Memory[]?]) {
+      try {
+        return await origHandler.apply(this, args);
+      } catch (err) {
+        logger.error(err);
+        throw err;
+      }
+    };
+  }
 }
+
+export const ultimateSolanaPlugin: Plugin = {
+  name: "ultimate-solana",
+  description: "Ultimate Solana token analysis, trading, and risk evaluation plugin.",
+  config: {},
+  actions,
+  providers,
+  models,
+  routes,
+  events,
+  async init(config: Record<string, string>, runtime: IAgentRuntime) {
+    console.log("Ultimate Solana Plugin initialized!");
+    // Initialize any required services or connections
+  },
+};
+
+export default ultimateSolanaPlugin;

@@ -1,18 +1,26 @@
 import { getMintInfo, getTokenHolders } from '../providers/solana';
-import { ActionContext } from '../types'
+import type { Provider, IAgentRuntime, Memory, ProviderResult } from '@elizaos/core';
+import { getTokenInfo } from '../providers/dexscreener';
+import type { ActionContext } from '../actions';
+
+// Type guard for DexscreenerData
+function isDexscreenerData(data: any): data is { pairs: Array<any> } {
+  return data && Array.isArray(data.pairs);
+}
+
 /**
  * Checks a token for scam indicators using Dexscreener, on-chain data, and Twitter sentiment.
- * @param ctx - { chain: string, address: string, symbol: string }
- * @returns {Promise<{message: string, risk: string, reasons: string[], scamMentions: number}|string>}
  */
-export const scamCheck = async (ctx: ActionContext): Promise<{message: string, risk: string, reasons: string[], scamMentions: number}|string> => {
-  const { chain, address, symbol } = ctx;
+export const scamCheck = async (ctx: ActionContext & { plugins?: Record<string, any> }): Promise<{message: string, risk: string, reasons: string[], scamMentions: number}|string> => {
+  const { chain, address, symbol, plugins } = ctx;
   if (!chain || !address) return 'Missing chain or address.';
   try {
     // Dexscreener check
-    const { getTokenInfo } = await import('../providers/dexscreener');
     const data = await getTokenInfo(chain, address);
-    const pair = data?.pairs?.[0];
+    if (!isDexscreenerData(data)) {
+      return `Failed to get token info: ${data.error ?? "unknown error"}`;
+    }
+    const pair = data.pairs[0];
     let risk = 'unknown';
     let reasons: string[] = [];
     if (pair) {
@@ -20,16 +28,16 @@ export const scamCheck = async (ctx: ActionContext): Promise<{message: string, r
         risk = 'high';
         reasons.push('Token is not verified on Dexscreener.');
       }
-      if (pair.liquidity?.usd < 1000) {
+      if ((pair.liquidity?.usd ?? 0) < 1000) {
         risk = 'high';
         reasons.push('Low liquidity.');
       }
-      if (pair.txns?.h24 < 10) {
-        risk = 'medium';
+      if ((pair.txns?.h24 ?? 0) < 10) {
+        risk = risk === 'high' ? risk : 'medium';
         reasons.push('Low trading activity.');
       }
-      if (pair.ageDays && pair.ageDays < 3) {
-        risk = 'medium';
+      if ((pair.ageDays ?? 9999) < 3) {
+        risk = risk === 'high' ? risk : 'medium';
         reasons.push('Token is very new.');
       }
     }
@@ -57,8 +65,8 @@ export const scamCheck = async (ctx: ActionContext): Promise<{message: string, r
     } catch {}
     // Twitter scam sentiment
     let scamMentions = 0;
-    if (symbol && ctx.plugins && ctx.plugins["elizaos/plugin-twitter"]) {
-      const tweets = await ctx.plugins["elizaos/plugin-twitter"].searchTweets({ q: symbol + ' scam', count: 20 });
+    if (symbol && plugins && plugins["elizaos/plugin-twitter"]) {
+      const tweets = await plugins["elizaos/plugin-twitter"].searchTweets({ q: symbol + ' scam', count: 20 });
       scamMentions = tweets.filter((t: any) => /scam|rug|fraud|hack/i.test(t.text)).length;
       if (scamMentions > 2) {
         risk = 'high';
@@ -69,7 +77,6 @@ export const scamCheck = async (ctx: ActionContext): Promise<{message: string, r
     const lockers = [
       '11111111111111111111111111111111', // Burn
       '4ckmDgGz5qQh6vny1tRQAMf6Tx5Rk8QeYv1GZ6tMCp7y', // Solana Locker (example)
-      // Add more known locker addresses here
     ];
     if (holders && holders.length > 0) {
       const largest = holders[0];
@@ -86,7 +93,27 @@ export const scamCheck = async (ctx: ActionContext): Promise<{message: string, r
       reasons,
       scamMentions
     };
-  } catch (e) {
+  } catch (e: any) {
     return `Failed to perform scam check: ${e.message}`;
   }
 };
+
+export const scamCheckProvider: Provider = {
+  name: 'SCAM_CHECK_PROVIDER',
+  description: 'Checks Solana tokens for scam/rug risk using on-chain and off-chain data.',
+  async get(runtime: IAgentRuntime, message: Memory): Promise<ProviderResult> {
+    const content = message.content as any;
+    const result = await scamCheck({
+      ...content,
+      plugins: runtime.plugins,
+    });
+    if (typeof result === 'string') {
+      return { text: result, values: {}, data: {} };
+    }
+    return {
+      text: result.message,
+      values: { risk: result.risk },
+      data: result,
+    };
+  },
+}; 

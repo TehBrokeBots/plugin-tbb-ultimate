@@ -111,7 +111,9 @@
         "amount": {"type": "number"},
         "stopLossPercent": {"type": "number"},
         "takeProfitPercent": {"type": "number"},
-        "confirm": {"type": "function"}
+        "confirm": {"type": "function"},
+        "exitTo": {"type": "string", "enum": ["USDC", "SOL"], "optional": true},
+        "monitorIntervalSec": {"type": "number", "optional": true}
       },
       "output": {"type": "string"}
     },
@@ -123,7 +125,9 @@
         "tradeAmountLamports": {"type": "number", "optional": true},
         "stopLossPercent": {"type": "number", "optional": true},
         "takeProfitPercent": {"type": "number", "optional": true},
-        "confirm": {"type": "function"}
+        "confirm": {"type": "function"},
+        "exitTo": {"type": "string", "enum": ["USDC", "SOL"], "optional": true},
+        "monitorIntervalSec": {"type": "number", "optional": true}
       },
       "output": {"type": "object"}
     },
@@ -134,7 +138,9 @@
         "amount": {"type": "number"},
         "stopLossPercent": {"type": "number"},
         "takeProfitPercent": {"type": "number"},
-        "confirm": {"type": "function"}
+        "confirm": {"type": "function"},
+        "exitTo": {"type": "string", "enum": ["USDC", "SOL"], "optional": true},
+        "monitorIntervalSec": {"type": "number", "optional": true}
       },
       "output": {"type": "string"}
     },
@@ -142,7 +148,9 @@
       "description": "Buy Pinecone DAO token with confirmation",
       "inputs": {
         "amount": {"type": "number"},
-        "confirm": {"type": "function"}
+        "confirm": {"type": "function"},
+        "exitTo": {"type": "string", "enum": ["USDC", "SOL"], "optional": true},
+        "monitorIntervalSec": {"type": "number", "optional": true}
       },
       "output": {"type": "string"}
     },
@@ -159,6 +167,21 @@
       "description": "Stop automatic recurring buy/sell",
       "inputs": {},
       "output": {"type": "string"}
+    },
+    "predictiveStrategy": {
+      "description": "Predictive trading strategy using AI to buy or sell any token via Jupiter, with stop loss/take profit and automated trading option.",
+      "inputs": {
+        "tokenMint": {"type": "string"},
+        "symbol": {"type": "string"},
+        "amount": {"type": "number"},
+        "stopLossPercent": {"type": "number"},
+        "takeProfitPercent": {"type": "number"},
+        "confirm": {"type": "function"},
+        "autoTrade": {"type": "boolean", "optional": true},
+        "exitTo": {"type": "string", "enum": ["USDC", "SOL"], "optional": true},
+        "monitorIntervalSec": {"type": "number", "optional": true}
+      },
+      "output": {"type": "object"}
     }
   }
 }

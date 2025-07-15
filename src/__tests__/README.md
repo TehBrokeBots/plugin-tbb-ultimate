@@ -1,165 +1,65 @@
-# TBB Ultimate Plugin Tests
+# Plugin TBB Ultimate Tests
 
-This directory contains tests for the TBB Ultimate plugin. The tests are organized into several categories to ensure comprehensive coverage of the plugin's functionality.
+This directory contains comprehensive tests for the Teh Broke Bots Ultimate plugin using Jest, following ElizaOS plugin standards.
 
 ## Test Structure
 
-The tests are organized as follows:
-
-```
-__tests__/
-├── README.md                 # This file
-├── *.test.ts                 # Unit tests for specific components
-├── integration.test.ts       # Integration tests for multiple components
-├── cypress/                  # Cypress component tests
-│   ├── component/            # Component tests
-│   │   ├── *.cy.tsx          # Individual component tests
-│   └── support/              # Cypress support files
-└── e2e/                      # End-to-end tests
-    ├── plugin-tbb-ultimate.ts # Main e2e test suite
-    └── additional-actions.ts  # Additional action tests
-```
-
-## Types of Tests
-
-### Unit Tests
-
-Unit tests focus on testing individual components in isolation. These tests are named with the pattern `*.test.ts` and are located in the root of the `__tests__` directory. Examples include:
-
-- `dexscreener.test.ts` - Tests for the Dexscreener provider
-- `service.test.ts` - Tests for the TBBUltimateService
-- `plugin.test.ts` - Tests for the plugin configuration
-
-### Integration Tests
-
-Integration tests examine how multiple components interact with each other. These tests are in `integration.test.ts` and demonstrate how actions, services, and providers work together.
-
-### Cypress Component Tests
-
-Cypress component tests verify that React components render correctly and behave as expected. These tests are located in the `cypress/component/` directory and are named with the pattern `*.cy.tsx`. Examples include:
-
-- `ExampleRoute.cy.tsx` - Tests for the ExampleRoute component
-- `PanelComponent.cy.tsx` - Tests for the PanelComponent
-- `TimeDisplay.cy.tsx` - Tests for the TimeDisplay component
-- `Utils.cy.tsx` - Tests for utility functions
-
-### End-to-End Tests
-
-End-to-end tests validate the entire plugin behavior in a production-like environment. These tests are located in the `e2e/` directory and are structured to run within the ElizaOS runtime. Examples include:
-
-- `plugin-tbb-ultimate.ts` - Main e2e test suite
-- `additional-actions.ts` - Tests for additional actions
+- `strategies.test.ts` - Tests for all trading strategies (arbitrage, dao, predictive, degen, safe)
+- `actions.test.ts` - Tests for core trading actions (swap, buy, sell, wallet balance, scam check)
 
 ## Running Tests
 
-### Unit and Integration Tests
-
-To run unit and integration tests:
-
 ```bash
-cd plugin-tbb-ultimate
-bun test
+# Run all tests
+npm test
+
+# Run specific test file
+npm test -- src/__tests__/strategies.test.ts
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
 ```
 
-### Cypress Component Tests
+## Test Features
 
-To run Cypress component tests:
+- **Jest-compatible**: Uses Jest test runner following ElizaOS plugin standards
+- **Comprehensive mocking**: All external dependencies are mocked using Jest mocks
+- **Strategy testing**: Tests all 5 trading strategies with new parameters
+- **Error handling**: Tests both success and failure scenarios
+- **Parameter validation**: Tests default and custom parameters
+- **ElizaOS compliance**: Follows plugin testing guidelines and standards
 
-```bash
-cd plugin-tbb-ultimate
-bun run cypress:component
-```
+## Mock Strategy
 
-### End-to-End Tests
+All tests use comprehensive Jest mocks for:
+- Solana connection and transactions
+- Jupiter API for swaps
+- DexScreener for price data
+- Orca and Raydium for arbitrage
+- PumpFun for degen trading
+- AI prediction service
 
-End-to-end tests are run by the ElizaOS test runner:
+## Test Coverage
 
-```bash
-cd plugin-tbb-ultimate
-elizaos test e2e
-```
+- ✅ Arbitrage strategy with spread detection
+- ✅ DAO token purchases
+- ✅ Predictive AI trading (LONG/SHORT/HOLD)
+- ✅ Degen strategy with PumpFun integration
+- ✅ Safe strategy with SOL/USDC validation
+- ✅ Core trading actions (swap, buy, sell)
+- ✅ Wallet balance checking
+- ✅ Scam detection and risk assessment
+- ✅ User confirmation flows
+- ✅ Error handling and edge cases
 
-## Adding New Tests
+## ElizaOS Plugin Standards
 
-### Adding Unit Tests
-
-1. Create a new file in the `__tests__` directory with the name pattern `*.test.ts`
-2. Import the component to test
-3. Write tests using the Bun test framework (`describe`, `it`, `expect`)
-
-Example:
-
-```typescript
-import { describe, expect, it } from 'bun:test';
-import { myFunction } from '../src/myModule';
-
-describe('My Module', () => {
-  it('should do something', () => {
-    const result = myFunction();
-    expect(result).toBe(expectedValue);
-  });
-});
-```
-
-### Adding Cypress Component Tests
-
-1. Create a new file in the `__tests__/cypress/component/` directory with the name pattern `*.cy.tsx`
-2. Import the component to test
-3. Write tests using the Cypress testing API
-
-Example:
-
-```typescript
-import React from 'react';
-import { MyComponent } from '../../../src/components/MyComponent';
-
-describe('MyComponent', () => {
-  it('renders correctly', () => {
-    cy.mount(<MyComponent />);
-    cy.get('[data-testid="my-component"]').should('exist');
-  });
-});
-```
-
-### Adding End-to-End Tests
-
-1. Create a new test object in one of the existing e2e test files or create a new file in the `__tests__/e2e/` directory
-2. Export the test suite and update `src/tests.ts` to include it
-
-Example:
-
-```typescript
-export const MyTestSuite = {
-  name: 'my_test_suite',
-  description: 'Tests for my feature',
-  tests: [
-    {
-      name: 'my_test',
-      fn: async (runtime) => {
-        // Test logic here
-        if (condition !== expected) {
-          throw new Error('Test failed');
-        }
-      }
-    }
-  ]
-};
-```
-
-Then update `src/tests.ts`:
-
-```typescript
-import { MyTestSuite } from './__tests__/e2e/my-test-suite';
-
-// Add to the default export
-export default [...existingTestSuites, MyTestSuite];
-```
-
-## Best Practices
-
-1. **Test in isolation**: Unit tests should test components in isolation, mocking dependencies as needed
-2. **Test real scenarios**: E2E tests should test real user scenarios, not implementation details
-3. **Use descriptive names**: Test names should clearly describe what's being tested
-4. **Test both success and failure paths**: Ensure both happy paths and error cases are covered
-5. **Keep tests independent**: Tests should not depend on the state from other tests
-6. **Clean up resources**: Clean up any resources created during tests
+These tests follow ElizaOS plugin development standards:
+- Uses Jest as the testing framework
+- Comprehensive mocking of external dependencies
+- Tests all exported actions and strategies
+- Validates error handling and edge cases
+- Follows the plugin's agentConfig structure 

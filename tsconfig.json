@@ -1,37 +1,30 @@
 {
   "compilerOptions": {
+    "jsx": "react",
+    "target": "ES2019",
+    "module": "commonjs",
+    "rootDir": "src",
     "outDir": "dist",
-    "lib": ["ESNext", "dom"],
-    "target": "ESNext",
-    "module": "Preserve",
-    "moduleResolution": "Bundler",
-    "strict": false,
+    "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": false,
-    "allowImportingTsExtensions": true,
-    "emitDeclarationOnly": true,
-    "declaration": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "sourceMap": true,
+    "noImplicitAny": true,
     "resolveJsonModule": true,
-    "noImplicitAny": false,
-    "allowJs": true,
-    "checkJs": false,
-    "noEmitOnError": false,
-    "moduleDetection": "force",
-    "allowArbitraryExtensions": true,
-    "jsx": "react",
-    "isolatedModules": false,
-    "noEmit": true
+    "types": ["jest", "node", "@jest/globals"],
+    "allowSyntheticDefaultImports": true
   },
   "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "tests/**/*.ts"
+    "src/**/*",
+    "src/__tests__/**/*",
+    "src/utils/**/*"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "src/__tests__/**/*",
-    "e2e/**/*"
+    "src/__tests__/jest.component.config.js",
+    "src/__tests__/jest.e2e.config.js"
   ]
 }

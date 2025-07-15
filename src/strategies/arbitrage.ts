@@ -3,11 +3,15 @@ import { getQuote } from "../providers/jupiter";
 import { getPrice as getOrcaPrice } from "../providers/orca";
 import { getPrice as getRaydiumPrice } from "../providers/raydium";
 import { swap } from "../actions";
+import { getDexscreenerData } from "../providers/dexscreener";
 
 const ARBITRAGE_SPREAD_THRESHOLD = parseFloat(
   process.env.ARBITRAGE_SPREAD_THRESHOLD || "0.01",
 );
 const AUTO_TRADE_ENABLED = process.env.AUTO_TRADE_ENABLED === "true";
+
+const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const SOL_MINT = "So11111111111111111111111111111111111111112";
 
 export interface ArbitrageParams {
   tokenMintA: string;
@@ -16,6 +20,8 @@ export interface ArbitrageParams {
   stopLossPercent?: number;
   takeProfitPercent?: number;
   confirm: (message: string) => Promise<boolean>;
+  exitTo?: "USDC" | "SOL";
+  monitorIntervalSec?: number;
 }
 
 export async function arbitrageStrategy(params: ArbitrageParams) {
@@ -26,6 +32,8 @@ export async function arbitrageStrategy(params: ArbitrageParams) {
     stopLossPercent = 0,
     takeProfitPercent = 0,
     confirm,
+    exitTo = "USDC",
+    monitorIntervalSec = 10,
   } = params;
 
   const jupiterQuote = await getQuote(
@@ -80,6 +88,40 @@ export async function arbitrageStrategy(params: ArbitrageParams) {
           outputMint: tokenMintA,
           amount: tradeAmountLamports,
         });
+
+        // Monitor for stop loss/take profit
+        let entryPrice = 0;
+        const priceData = await getDexscreenerData({ tokenMint: tokenMintA });
+        if (typeof priceData === "object" && "priceUsd" in priceData) {
+          entryPrice = priceData.priceUsd;
+        }
+        let monitoring = true;
+        const pollInterval = (monitorIntervalSec || 10) * 1000;
+        (async function monitorPrice() {
+          while (monitoring) {
+            await new Promise((r) => setTimeout(r, pollInterval));
+            const data = await getDexscreenerData({ tokenMint: tokenMintA });
+            if (!data || typeof data !== "object" || !("priceUsd" in data)) continue;
+            const currentPrice = data.priceUsd;
+            if (!entryPrice || !currentPrice) continue;
+            let change = ((currentPrice - entryPrice) / entryPrice) * 100;
+            if (change <= -Math.abs(stopLossPercent)) {
+              monitoring = false;
+              // Stop loss hit, exit trade
+              await swap({ inputMint: tokenMintB, outputMint: exitTo === "USDC" ? USDC_MINT : SOL_MINT, amount: tradeAmountLamports });
+              console.log(`Stop loss triggered at ${currentPrice} (${change.toFixed(2)}%), exited to ${exitTo}`);
+              return;
+            }
+            if (change >= Math.abs(takeProfitPercent)) {
+              monitoring = false;
+              // Take profit hit, exit trade
+              await swap({ inputMint: tokenMintB, outputMint: exitTo === "USDC" ? USDC_MINT : SOL_MINT, amount: tradeAmountLamports });
+              console.log(`Take profit triggered at ${currentPrice} (${change.toFixed(2)}%), exited to ${exitTo}`);
+              return;
+            }
+          }
+        })();
+
         return {
           arbitrageOpportunity: true,
           spread,

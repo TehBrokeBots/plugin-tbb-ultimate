@@ -18,8 +18,17 @@ const connection = new Connection(
   process.env.SOLANA_RPC || "https://api.mainnet-beta.solana.com",
   "confirmed",
 );
-const secret = JSON.parse(process.env.PRIVATE_KEY!);
-const keypair = Keypair.fromSecretKey(Uint8Array.from(secret));
+const privateKeyEnv = process.env.PRIVATE_KEY;
+let keypair: Keypair;
+
+if (!privateKeyEnv) {
+  // For testing purposes, create a dummy keypair if PRIVATE_KEY is not set
+  console.warn("PRIVATE_KEY environment variable not set, using dummy keypair for testing");
+  keypair = Keypair.generate();
+} else {
+  const secret = JSON.parse(privateKeyEnv);
+  keypair = Keypair.fromSecretKey(Uint8Array.from(secret));
+}
 
 export async function getPumpFunData(params: { tokenMint: string }) {
   const resp = await axios.get(

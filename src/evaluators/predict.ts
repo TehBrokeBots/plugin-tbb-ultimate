@@ -6,7 +6,7 @@ import {
   calculateRSI,
   calculateMACD,
   calculateBollingerBands,
-} from "../technicalindicators";
+} from "../providers/technicalindicators";
 
 type DexscreenerResponse =
   | { error: string }

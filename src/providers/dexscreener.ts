@@ -1,5 +1,25 @@
 // src/providers/dexscreener.ts
 import axios from "axios";
+const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
+
+async function getCoinMarketCapPrice(symbol: string): Promise<number | null> {
+  if (!COINMARKETCAP_API_KEY) return null;
+  try {
+    const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest`;
+    const resp = await axios.get(url, {
+      params: { symbol },
+      headers: { "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY },
+    });
+    const data = resp.data.data?.[symbol];
+    if (data && data.quote && data.quote.USD && data.quote.USD.price) {
+      return data.quote.USD.price;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export const dexscreener = {
   getTokenInfo,
   getPairInfo,
@@ -76,14 +96,18 @@ export async function getTokenInfo(
  * Simple method to retrieve primary token data, taking first pair from DexScreener response.
  * Basically a convenience wrapper around getTokenInfo.
  */
-export async function getDexscreenerData(params: { tokenMint: string }) {
-  const { tokenMint } = params;
+export async function getDexscreenerData(params: { tokenMint: string; symbol?: string }) {
+  const { tokenMint, symbol } = params;
   const info = await getTokenInfo("solana", tokenMint);
   if ("error" in info) {
+    // Fallback to CoinMarketCap for any token if symbol is provided
+    if (symbol) {
+      const price = await getCoinMarketCapPrice(symbol);
+      if (price) return { priceUsd: price, fallback: "coinmarketcap" };
+    }
     return info;
   }
   const pair = info.pairs[0];
-
   return {
     priceUsd: parseFloat(pair.priceUsd),
     liquidityUsd: pair.liquidity?.usd ?? null,

@@ -17,7 +17,7 @@ import {
   calculateBollingerBands,
   calculateMACD,
   calculateRSI,
-} from "./technicalindicators";
+} from "./providers/technicalindicators";
 dotenv.config();
 
 dotenv.config();
