@@ -1,7 +1,7 @@
 # <p align="center"><b>Teh Broke Bots Ultimate Solana DeFi Plugin for ElizaOS Agents</b></p>
 
 <p align="center">
-  <img src="./images/teh-broke-bots-logo.png" alt="Teh Broke Bot" width="600" />
+  <img src="./images/teh-broke-bots-logo.jpg" alt="Teh Broke Bot" width="600" />
 </p>
 
 ---
