@@ -1,8 +1,8 @@
 {
-  "name": "ultimate-solana",
+  "name": "tbb-ultimate",
   "version": "1.0.0",
   "description": "Ultimate Solana token analysis, swap, scam detection, strategies and forecasting plugin.",
-  "author": "YourName <youremail@example.com>",
+  "author": "Broke Bot Ian",
   "license": "MIT",
   "requires": [
     "@elizaos/plugin-twitter"
@@ -145,7 +145,7 @@
       "output": {"type": "string"}
     },
     "daoStrategy": {
-      "description": "Buy Pinecone DAO token with confirmation",
+      "description": "Buy Teh Broke Bots DAO token with confirmation",
       "inputs": {
         "amount": {"type": "number"},
         "confirm": {"type": "function"},

@@ -83,7 +83,7 @@ Manual Setup (Local Plugin Use via Git)
    npm install
 4. npm run build
 5. In your ElizaOS character or global configuration file, add the plugin package:
-   import tehbrokebotUltimatePlugin from '@elizaos/plugin-tehbrokebotultimate';
+   import tehbrokebotUltimatePlugin from '@elizaos/plugin-tbb-ultimate';
    export const plugins = [tbbUltimatePlugin];
 6. Create a .env file in your ElizaOS project root based on .env.example and fill in required keys.
 

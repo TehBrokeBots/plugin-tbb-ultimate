@@ -36,114 +36,121 @@ export async function arbitrageStrategy(params: ArbitrageParams) {
     monitorIntervalSec = 10,
   } = params;
 
-  const jupiterQuote = await getQuote(
-    tokenMintA,
-    tokenMintB,
-    tradeAmountLamports,
-  );
-  const jupiterPrice = parseFloat(jupiterQuote.price || "0");
+  if (!tokenMintA || !tokenMintB) throw new Error("Both token mints are required for arbitrage strategy.");
+  if (typeof tradeAmountLamports !== 'number' || tradeAmountLamports <= 0) throw new Error("Amount must be a positive number.");
 
-  const orcaPrice = await getOrcaPrice(tokenMintA, tokenMintB);
-  const raydiumPrice = await getRaydiumPrice(tokenMintA, tokenMintB);
+  try {
+    const jupiterQuote = await getQuote(
+      tokenMintA,
+      tokenMintB,
+      tradeAmountLamports,
+    );
+    const jupiterPrice = parseFloat(jupiterQuote.price || "0");
 
-  const prices = [
-    { name: "Jupiter", price: jupiterPrice },
-    ...(orcaPrice !== null ? [{ name: "Orca", price: orcaPrice }] : []),
-    ...(raydiumPrice !== null
-      ? [{ name: "Raydium", price: raydiumPrice }]
-      : []),
-  ];
+    const orcaPrice = await getOrcaPrice(tokenMintA, tokenMintB);
+    const raydiumPrice = await getRaydiumPrice(tokenMintA, tokenMintB);
 
-  if (prices.length < 2) {
-    return { message: "Not enough price data to evaluate arbitrage." };
-  }
+    const prices = [
+      { name: "Jupiter", price: jupiterPrice },
+      ...(orcaPrice !== null ? [{ name: "Orca", price: orcaPrice }] : []),
+      ...(raydiumPrice !== null
+        ? [{ name: "Raydium", price: raydiumPrice }]
+        : []),
+    ];
 
-  const minPriceObj = prices.reduce(
-    (min, p) => (p.price < min.price ? p : min),
-    prices[0],
-  );
-  const maxPriceObj = prices.reduce(
-    (max, p) => (p.price > max.price ? p : max),
-    prices[0],
-  );
-  const spread = (maxPriceObj.price - minPriceObj.price) / minPriceObj.price;
+    if (prices.length < 2) {
+      return { message: "Not enough price data to evaluate arbitrage." };
+    }
 
-  if (spread > ARBITRAGE_SPREAD_THRESHOLD) {
-    const message = `Arbitrage opportunity! Buy on ${minPriceObj.name} at ${minPriceObj.price.toFixed(
-      6,
-    )}, sell on ${maxPriceObj.name} at ${maxPriceObj.price.toFixed(6)} with spread ${(spread * 100).toFixed(2)}%. Proceed with automated trades?`;
+    const minPriceObj = prices.reduce(
+      (min, p) => (p.price < min.price ? p : min),
+      prices[0],
+    );
+    const maxPriceObj = prices.reduce(
+      (max, p) => (p.price > max.price ? p : max),
+      prices[0],
+    );
+    const spread = (maxPriceObj.price - minPriceObj.price) / minPriceObj.price;
 
-    const userConfirmed = await confirm(message);
-    if (!userConfirmed) return "User cancelled arbitrage trades.";
+    if (spread > ARBITRAGE_SPREAD_THRESHOLD) {
+      const message = `Arbitrage opportunity! Buy on ${minPriceObj.name} at ${minPriceObj.price.toFixed(
+        6,
+      )}, sell on ${maxPriceObj.name} at ${maxPriceObj.price.toFixed(6)} with spread ${(spread * 100).toFixed(2)}%. Proceed with automated trades?`;
 
-    if (AUTO_TRADE_ENABLED) {
-      try {
-        const buySig = await swap({
-          inputMint: tokenMintA,
-          outputMint: tokenMintB,
-          amount: tradeAmountLamports,
-        });
-        const sellSig = await swap({
-          inputMint: tokenMintB,
-          outputMint: tokenMintA,
-          amount: tradeAmountLamports,
-        });
+      const userConfirmed = await confirm(message);
+      if (!userConfirmed) return "User cancelled arbitrage trades.";
 
-        // Monitor for stop loss/take profit
-        let entryPrice = 0;
-        const priceData = await getDexscreenerData({ tokenMint: tokenMintA });
-        if (typeof priceData === "object" && "priceUsd" in priceData) {
-          entryPrice = priceData.priceUsd;
-        }
-        let monitoring = true;
-        const pollInterval = (monitorIntervalSec || 10) * 1000;
-        (async function monitorPrice() {
-          while (monitoring) {
-            await new Promise((r) => setTimeout(r, pollInterval));
-            const data = await getDexscreenerData({ tokenMint: tokenMintA });
-            if (!data || typeof data !== "object" || !("priceUsd" in data)) continue;
-            const currentPrice = data.priceUsd;
-            if (!entryPrice || !currentPrice) continue;
-            let change = ((currentPrice - entryPrice) / entryPrice) * 100;
-            if (change <= -Math.abs(stopLossPercent)) {
-              monitoring = false;
-              // Stop loss hit, exit trade
-              await swap({ inputMint: tokenMintB, outputMint: exitTo === "USDC" ? USDC_MINT : SOL_MINT, amount: tradeAmountLamports });
-              console.log(`Stop loss triggered at ${currentPrice} (${change.toFixed(2)}%), exited to ${exitTo}`);
-              return;
-            }
-            if (change >= Math.abs(takeProfitPercent)) {
-              monitoring = false;
-              // Take profit hit, exit trade
-              await swap({ inputMint: tokenMintB, outputMint: exitTo === "USDC" ? USDC_MINT : SOL_MINT, amount: tradeAmountLamports });
-              console.log(`Take profit triggered at ${currentPrice} (${change.toFixed(2)}%), exited to ${exitTo}`);
-              return;
-            }
+      if (AUTO_TRADE_ENABLED) {
+        try {
+          const buySig = await swap({
+            inputMint: tokenMintA,
+            outputMint: tokenMintB,
+            amount: tradeAmountLamports,
+          });
+          const sellSig = await swap({
+            inputMint: tokenMintB,
+            outputMint: tokenMintA,
+            amount: tradeAmountLamports,
+          });
+
+          // Monitor for stop loss/take profit
+          let entryPrice = 0;
+          const priceData = await getDexscreenerData({ tokenMint: tokenMintA });
+          if (typeof priceData === "object" && "priceUsd" in priceData) {
+            entryPrice = priceData.priceUsd;
           }
-        })();
+          let monitoring = true;
+          const pollInterval = (monitorIntervalSec || 10) * 1000;
+          (async function monitorPrice() {
+            while (monitoring) {
+              await new Promise((r) => setTimeout(r, pollInterval));
+              const data = await getDexscreenerData({ tokenMint: tokenMintA });
+              if (!data || typeof data !== "object" || !("priceUsd" in data)) continue;
+              const currentPrice = data.priceUsd;
+              if (!entryPrice || !currentPrice) continue;
+              let change = ((currentPrice - entryPrice) / entryPrice) * 100;
+              if (change <= -Math.abs(stopLossPercent)) {
+                monitoring = false;
+                // Stop loss hit, exit trade
+                await swap({ inputMint: tokenMintB, outputMint: exitTo === "USDC" ? USDC_MINT : SOL_MINT, amount: tradeAmountLamports });
+                console.log(`Stop loss triggered at ${currentPrice} (${change.toFixed(2)}%), exited to ${exitTo}`);
+                return;
+              }
+              if (change >= Math.abs(takeProfitPercent)) {
+                monitoring = false;
+                // Take profit hit, exit trade
+                await swap({ inputMint: tokenMintB, outputMint: exitTo === "USDC" ? USDC_MINT : SOL_MINT, amount: tradeAmountLamports });
+                console.log(`Take profit triggered at ${currentPrice} (${change.toFixed(2)}%), exited to ${exitTo}`);
+                return;
+              }
+            }
+          })();
 
+          return {
+            arbitrageOpportunity: true,
+            spread,
+            buyOn: minPriceObj.name,
+            sellOn: maxPriceObj.name,
+            autoTrade: { buySig, sellSig, status: "success" },
+          };
+        } catch (e) {
+          return {
+            error: `Arbitrage auto trade failed: ${(e as Error).message}`,
+          };
+        }
+      } else {
         return {
           arbitrageOpportunity: true,
           spread,
           buyOn: minPriceObj.name,
           sellOn: maxPriceObj.name,
-          autoTrade: { buySig, sellSig, status: "success" },
-        };
-      } catch (e) {
-        return {
-          error: `Arbitrage auto trade failed: ${(e as Error).message}`,
+          autoTrade: { status: "disabled" },
         };
       }
     } else {
-      return {
-        arbitrageOpportunity: true,
-        spread,
-        buyOn: minPriceObj.name,
-        sellOn: maxPriceObj.name,
-        autoTrade: { status: "disabled" },
-      };
+      return { arbitrageOpportunity: false, spread };
     }
-  } else {
-    return { arbitrageOpportunity: false, spread };
+  } catch (e) {
+    throw new Error(`Failed to execute arbitrage strategy: ${(e as Error).message}`);
   }
 }

@@ -3,35 +3,44 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
-# User-specific files
+# IDE and OS files
 *.rsuser
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
+
+# Environment and local data
 *.env
 *.eliza
 *data
 *.elizadb-test
-*dist
-*node_modules
+
+# Build output and dependencies
+dist/
+node_modules/
+
+# Lock files (pick one: npm or bun, not both)
+package-lock.json
+bun.lock
+
+# Local shell/config
 *.bashdrc
-*bun.lock
-*bunfig.toml
-*cypress.config.ts
-*index.html
-*jes.component.config.js
-*jest.config.js
-*jes.e2e.config.js
-*jest.setup.ts
-*jest.setup.js
-*package-lock.json
-*postcss.config.js
-*tailwind.config.js
-*tailwind.build.json
-*tsconfig.json
-*tsup.config.ts
-*vite.config.ts
+bunfig.toml
+
+# (REMOVE these from .gitignore, they should be committed)
+# cypress.config.ts
+# index.html
+# jest.*.js
+# jest.*.ts
+# postcss.config.js
+# tailwind.config.js
+# tailwind.build.json
+# tsconfig.json
+# tsconfig.build.json
+# tsup.config.js
+# vite.config.ts
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

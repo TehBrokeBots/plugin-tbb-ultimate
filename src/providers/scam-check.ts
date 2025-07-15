@@ -11,12 +11,12 @@ function isDexscreenerData(data: any): data is { pairs: Array<any> } {
 /**
  * Checks a token for scam indicators using Dexscreener, on-chain data, and Twitter sentiment.
  */
-export const scamCheck = async (ctx: ActionContext & { plugins?: Record<string, any> }): Promise<{message: string, risk: string, reasons: string[], scamMentions: number}|string> => {
-  const { chain, address, symbol, plugins } = ctx;
-  if (!chain || !address) return 'Missing chain or address.';
+export async function checkScam(params: { tokenMint: string; symbol?: string; plugins?: Record<string, any> }) {
+  const { tokenMint, symbol, plugins } = params;
+  if (!tokenMint) throw new Error("Token mint is required for scam check.");
   try {
     // Dexscreener check
-    const data = await getTokenInfo(chain, address);
+    const data = await getTokenInfo('solana', tokenMint);
     if (!isDexscreenerData(data)) {
       return `Failed to get token info: ${data.error ?? "unknown error"}`;
     }
@@ -44,12 +44,12 @@ export const scamCheck = async (ctx: ActionContext & { plugins?: Record<string, 
     // Mint authority check
     let mintInfo, holders;
     try {
-      mintInfo = await getMintInfo(address);
+      mintInfo = await getMintInfo(tokenMint);
       if (mintInfo.mintAuthority && mintInfo.mintAuthority !== null && mintInfo.mintAuthority !== '' && mintInfo.mintAuthority !== '11111111111111111111111111111111') {
         risk = 'high';
         reasons.push('Mint authority is not renounced (hidden mint authority risk).');
       }
-      holders = await getTokenHolders(address);
+      holders = await getTokenHolders(tokenMint);
       if (holders && holders.length > 0 && mintInfo.supply) {
         const supply = Number(mintInfo.supply) / Math.pow(10, mintInfo.decimals || 0);
         const largest = holders[0];
@@ -94,17 +94,18 @@ export const scamCheck = async (ctx: ActionContext & { plugins?: Record<string, 
       scamMentions
     };
   } catch (e: any) {
-    return `Failed to perform scam check: ${e.message}`;
+    throw new Error(`Failed to perform scam check: ${(e as Error).message}`);
   }
-};
+}
 
 export const scamCheckProvider: Provider = {
   name: 'SCAM_CHECK_PROVIDER',
   description: 'Checks Solana tokens for scam/rug risk using on-chain and off-chain data.',
   async get(runtime: IAgentRuntime, message: Memory): Promise<ProviderResult> {
     const content = message.content as any;
-    const result = await scamCheck({
-      ...content,
+    const result = await checkScam({
+      tokenMint: content.tokenMint,
+      symbol: content.symbol,
       plugins: runtime.plugins,
     });
     if (typeof result === 'string') {

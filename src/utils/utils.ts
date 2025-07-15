@@ -15,6 +15,12 @@ import { Transaction, PublicKey } from "@solana/web3.js";
 jest.mock("axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
+export function assertNonEmptyString(value: string, fieldName: string) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error(`${fieldName} must be a non-empty string.`);
+  }
+}
+
 export function createMockRuntime(): IAgentRuntime {
   return {
     on: jest.fn(),

@@ -28,22 +28,24 @@ export const dexscreener = {
 const BASE_URL = "https://api.dexscreener.io/latest/dex";
 
 export async function getPairInfo(pairAddress: string) {
+  if (!pairAddress) throw new Error("Pair address is required for Dexscreener info.");
   try {
     const { data } = await axios.get(`${BASE_URL}/pairs/${pairAddress}`);
     return data;
-  } catch (err: any) {
-    return { error: err.message ?? "Error fetching pair info" };
+  } catch (e) {
+    throw new Error(`Failed to get pair info from Dexscreener: ${(e as Error).message}`);
   }
 }
 
 export async function searchToken(tokenSymbol: string) {
+  if (!tokenSymbol) throw new Error("Token symbol is required for Dexscreener search.");
   try {
     const { data } = await axios.get(`${BASE_URL}/search`, {
       params: { q: tokenSymbol },
     });
     return data;
-  } catch (err: any) {
-    return { error: err.message ?? "Error searching for token" };
+  } catch (e) {
+    throw new Error(`Failed to search for token on Dexscreener: ${(e as Error).message}`);
   }
 }
 
@@ -76,6 +78,7 @@ export async function getTokenInfo(
   if (chain.toLowerCase() !== "solana") {
     return { error: `Unsupported chain: ${chain}` };
   }
+  if (!tokenMint) throw new Error("Token mint address is required for Dexscreener token info.");
 
   try {
     const url = `https://api.dexscreener.io/latest/dex/tokens/${tokenMint}`;

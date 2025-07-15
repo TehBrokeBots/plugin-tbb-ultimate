@@ -46,14 +46,24 @@ export async function sendTransaction(txn: Transaction): Promise<string> {
 }
 
 export async function getParsedTokenAccounts(ownerPubkey: PublicKey) {
-  const res = await connection.getParsedTokenAccountsByOwner(ownerPubkey, {
-    programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-  });
-  return res.value;
+  try {
+    if (!ownerPubkey) throw new Error("Owner public key is required.");
+    const res = await connection.getParsedTokenAccountsByOwner(ownerPubkey, {
+      programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+    });
+    return res.value;
+  } catch (e) {
+    throw new Error(`Failed to get parsed token accounts: ${(e as Error).message}`);
+  }
 }
 
 export async function getBalance(pubkey: PublicKey): Promise<number> {
-  return connection.getBalance(pubkey, "confirmed");
+  try {
+    if (!pubkey) throw new Error("Public key is required.");
+    return connection.getBalance(pubkey, "confirmed");
+  } catch (e) {
+    throw new Error(`Failed to get balance: ${(e as Error).message}`);
+  }
 }
 
 export async function getMintInfo(tokenMint: string): Promise<{
@@ -61,27 +71,33 @@ export async function getMintInfo(tokenMint: string): Promise<{
   supply: string;
   decimals: number;
 }> {
-  const mintPubkey = new PublicKey(tokenMint);
-  const accountInfo = await connection.getParsedAccountInfo(
-    mintPubkey,
-    "confirmed",
-  );
-  if (!accountInfo.value) throw new Error("Mint account not found");
+  try {
+    if (!tokenMint) throw new Error("Token mint address is required.");
+    const mintPubkey = new PublicKey(tokenMint);
+    const accountInfo = await connection.getParsedAccountInfo(
+      mintPubkey,
+      "confirmed",
+    );
+    if (!accountInfo.value) throw new Error("Mint account not found");
 
-  const parsed = (accountInfo.value.data as ParsedAccountData).parsed;
-  const info = parsed.info;
+    const parsed = (accountInfo.value.data as ParsedAccountData).parsed;
+    const info = parsed.info;
 
-  return {
-    mintAuthority: info.mintAuthority ?? null,
-    supply: info.supply,
-    decimals: info.decimals,
-  };
+    return {
+      mintAuthority: info.mintAuthority ?? null,
+      supply: info.supply,
+      decimals: info.decimals,
+    };
+  } catch (e) {
+    throw new Error(`Failed to get mint info: ${(e as Error).message}`);
+  }
 }
 
 export async function getTokenHolders(
   tokenMint: string,
 ): Promise<{ address: string; amount: string }[]> {
   try {
+    if (!tokenMint) throw new Error("Token mint address is required.");
     const url = `https://public-api.solscan.io/token/holders?tokenAddress=${tokenMint}&limit=10`;
     const response = await axios.get(url);
     if (!response.data || !response.data.data) return [];
@@ -90,8 +106,8 @@ export async function getTokenHolders(
       address: holder.owner,
       amount: holder.amount,
     }));
-  } catch {
-    return [];
+  } catch (e) {
+    throw new Error(`Failed to get token holders: ${(e as Error).message}`);
   }
 }
 

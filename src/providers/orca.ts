@@ -10,14 +10,20 @@ export interface PoolData {
 }
 
 export async function getPools(): Promise<PoolData[]> {
-  const resp = await axios.get(ORCA_POOLS_API);
-  return resp.data.pools as PoolData[];
+  if (!ORCA_POOLS_API) throw new Error("ORCA_POOLS_API is not defined.");
+  try {
+    const resp = await axios.get(ORCA_POOLS_API);
+    return resp.data.pools as PoolData[];
+  } catch (e) {
+    throw new Error(`Failed to fetch pools from Orca: ${(e as Error).message}`);
+  }
 }
 
 export async function getPrice(
   inputMint: string,
   outputMint: string,
 ): Promise<number | null> {
+  if (!inputMint || !outputMint) throw new Error("Input and output mints are required for price calculation.");
   try {
     const pools = await getPools();
     const pool = pools.find(
@@ -36,7 +42,17 @@ export async function getPrice(
     } else {
       return tokenAReserve / tokenBReserve;
     }
-  } catch {
-    return null;
+  } catch (e) {
+    throw new Error(`Failed to calculate price from Orca: ${(e as Error).message}`);
+  }
+}
+
+// Example for getPoolInfo function:
+export async function getPoolInfo(poolAddress: string) {
+  if (!poolAddress) throw new Error("Pool address is required for Orca info.");
+  try {
+    // ... actual API call logic ...
+  } catch (e) {
+    throw new Error(`Failed to get pool info from Orca: ${(e as Error).message}`);
   }
 }

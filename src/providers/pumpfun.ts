@@ -31,15 +31,24 @@ if (!privateKeyEnv) {
 }
 
 export async function getPumpFunData(params: { tokenMint: string }) {
-  const resp = await axios.get(
-    `${PUMPFUN_DATA_API}/pump-swap/token/${params.tokenMint}`,
-  );
-  return resp.data;
+  if (!params.tokenMint) throw new Error("Token mint is required for Pump.fun info.");
+  try {
+    const resp = await axios.get(
+      `${PUMPFUN_DATA_API}/pump-swap/token/${params.tokenMint}`,
+    );
+    return resp.data;
+  } catch (e) {
+    throw new Error(`Failed to get token info from Pump.fun: ${(e as Error).message}`);
+  }
 }
 
 export async function getPumpFunRealTimeTokens() {
-  const resp = await axios.get(`${PUMPFUN_DATA_API}/real-time/new-tokens`);
-  return resp.data;
+  try {
+    const resp = await axios.get(`${PUMPFUN_DATA_API}/real-time/new-tokens`);
+    return resp.data;
+  } catch (e) {
+    throw new Error(`Failed to get real-time tokens from Pump.fun: ${(e as Error).message}`);
+  }
 }
 
 export async function pumpFunTrade(params: {
@@ -47,7 +56,6 @@ export async function pumpFunTrade(params: {
   action: "buy" | "sell";
   amount: number;
 }) {
-  // This was previously `pumpFunTrade`, rename or alias accordingly
   if (
     !params.tokenMint ||
     !params.amount ||
@@ -56,20 +64,24 @@ export async function pumpFunTrade(params: {
     throw new Error("Invalid params.");
   }
 
-  const resp = await axios.post(`${PUMPFUN_TRADING_API}/swap`, {
-    tokenMint: params.tokenMint,
-    side: params.action.toUpperCase(),
-    amount: params.amount,
-    wallet: keypair.publicKey.toBase58(),
-  });
+  try {
+    const resp = await axios.post(`${PUMPFUN_TRADING_API}/swap`, {
+      tokenMint: params.tokenMint,
+      side: params.action.toUpperCase(),
+      amount: params.amount,
+      wallet: keypair.publicKey.toBase58(),
+    });
 
-  if (resp.data.transaction) {
-    const txn = Transaction.from(Buffer.from(resp.data.transaction, "base64"));
-    txn.partialSign(keypair);
-    const sig = await sendAndConfirmTransaction(connection, txn, [keypair]);
-    return sig;
-  } else {
-    return resp.data;
+    if (resp.data.transaction) {
+      const txn = Transaction.from(Buffer.from(resp.data.transaction, "base64"));
+      txn.partialSign(keypair);
+      const sig = await sendAndConfirmTransaction(connection, txn, [keypair]);
+      return sig;
+    } else {
+      return resp.data;
+    }
+  } catch (e) {
+    throw new Error(`Failed to execute trade on Pump.fun: ${(e as Error).message}`);
   }
 }
 
@@ -81,20 +93,24 @@ export async function createPumpFunToken(params: {
   if (!params.name || !params.symbol || !params.initialSupply) {
     throw new Error("Invalid createPumpFunToken parameters.");
   }
-  const resp = await axios.post(`${PUMPFUN_TRADING_API}/create-token`, {
-    name: params.name,
-    symbol: params.symbol,
-    initialSupply: params.initialSupply,
-    wallet: keypair.publicKey.toBase58(),
-  });
+  try {
+    const resp = await axios.post(`${PUMPFUN_TRADING_API}/create-token`, {
+      name: params.name,
+      symbol: params.symbol,
+      initialSupply: params.initialSupply,
+      wallet: keypair.publicKey.toBase58(),
+    });
 
-  if (resp.data.transaction) {
-    const txn = Transaction.from(Buffer.from(resp.data.transaction, "base64"));
-    txn.partialSign(keypair);
-    const sig = await sendAndConfirmTransaction(connection, txn, [keypair]);
-    return sig;
-  } else {
-    return resp.data;
+    if (resp.data.transaction) {
+      const txn = Transaction.from(Buffer.from(resp.data.transaction, "base64"));
+      txn.partialSign(keypair);
+      const sig = await sendAndConfirmTransaction(connection, txn, [keypair]);
+      return sig;
+    } else {
+      return resp.data;
+    }
+  } catch (e) {
+    throw new Error(`Failed to create token on Pump.fun: ${(e as Error).message}`);
   }
 }
 export const pumpfun = {
