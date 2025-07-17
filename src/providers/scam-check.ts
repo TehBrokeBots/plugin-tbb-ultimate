@@ -2,6 +2,7 @@ import { getMintInfo, getTokenHolders } from '../providers/solana';
 import type { Provider, IAgentRuntime, Memory, ProviderResult } from '@elizaos/core';
 import { getTokenInfo } from '../providers/dexscreener';
 import type { ActionContext } from '../actions';
+import { logger } from '@elizaos/core';
 
 // Type guard for DexscreenerData
 function isDexscreenerData(data: any): data is { pairs: Array<any> } {
@@ -103,18 +104,23 @@ export const scamCheckProvider: Provider = {
   description: 'Checks Solana tokens for scam/rug risk using on-chain and off-chain data.',
   async get(runtime: IAgentRuntime, message: Memory): Promise<ProviderResult> {
     const content = message.content as any;
-    const result = await checkScam({
-      tokenMint: content.tokenMint,
-      symbol: content.symbol,
-      plugins: runtime.plugins,
-    });
-    if (typeof result === 'string') {
-      return { text: result, values: {}, data: {} };
+    try {
+      const result = await checkScam({
+        tokenMint: content.tokenMint,
+        symbol: content.symbol,
+        plugins: runtime.plugins,
+      });
+      if (typeof result === 'string') {
+        return { text: result, values: {}, data: {} };
+      }
+      return {
+        text: result.message,
+        values: { risk: result.risk },
+        data: result,
+      };
+    } catch (error) {
+      logger.error("Error in scamCheckProvider.get:", error);
+      throw error;
     }
-    return {
-      text: result.message,
-      values: { risk: result.risk },
-      data: result,
-    };
   },
 }; 

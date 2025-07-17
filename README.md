@@ -6,7 +6,7 @@
 
 ---
 
-## <b>🔮 Features</b>
+## <b>🔮 Core Features</b>
 
 - **Real-time Solana token data**: Price, volume, liquidity from DexScreener and CoinMarketCap as an optional fallback.
 - **Technical indicators**: RSI, MACD, moving averages, Bollinger Bands, and trend detection.

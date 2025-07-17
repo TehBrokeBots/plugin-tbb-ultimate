@@ -401,3 +401,17 @@ export function stopAutoBuySell() {
   }
   return "No active automated buy/sell task";
 }
+
+// Modularized actions (ElizaOS guideline)
+export { swapAction } from "./actions/swap";
+export { buyAction } from "./actions/buy";
+export { sellAction } from "./actions/sell";
+export { checkWalletBalanceAction } from "./actions/checkWalletBalance";
+export { scamCheckAction } from "./actions/scamCheck";
+export { sentimentAnalysisAction } from "./actions/sentimentAnalysis";
+export { portfolioTrackerAction } from "./actions/portfolioTracker";
+export { marketTrendsAction } from "./actions/marketTrends";
+export { startPriceMonitorAction } from "./actions/startPriceMonitor";
+export { stopPriceMonitorAction } from "./actions/stopPriceMonitor";
+export { startAutoBuySellAction } from "./actions/startAutoBuySell";
+export { stopAutoBuySellAction } from "./actions/stopAutoBuySell";

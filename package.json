@@ -44,6 +44,7 @@
     "@tailwindcss/postcss": "^4.1.11",
     "@testing-library/cypress": "^10.0.3",
     "@types/jest": "^30.0.0",
+    "chalk": "^5.4.1",
     "cypress": "^14.4.1",
     "jest": "^30.0.4",
     "tailwindcss-animate": "^1.0.7",
@@ -53,7 +54,7 @@
   "agentConfig": {
     "actions": [
       "swap",
-      "buy", 
+      "buy",
       "sell",
       "checkWalletBalance",
       "pumpFunTrade",
@@ -83,7 +84,11 @@
     "evaluators": [
       "predict"
     ],
-    "models": ["gpt-4", "gpt-3.5-turbo", "claude-3"],
+    "models": [
+      "gpt-4",
+      "gpt-3.5-turbo",
+      "claude-3"
+    ],
     "services": [
       "priceMonitor",
       "autoBuySell"

@@ -119,6 +119,10 @@ jest.mock("../providers/dexscreener", () => ({
         verified: true,
         txns: { h24: 100 },
         ageDays: 30,
+        priceChart: Array.from({ length: 10 }, (_, i) => ({
+          price: (1 + i * 0.01).toFixed(2),
+          volume: (1000 + i * 10).toFixed(2),
+        })),
       },
     ],
   }),
@@ -195,8 +199,7 @@ describe("Trading Actions", () => {
       expect(() => swap(invalidParams)).toBeDefined();
       
       // Test that the function still returns a promise even with invalid params
-      const swapPromise = swap(invalidParams);
-      expect(swapPromise).toBeInstanceOf(Promise);
+      await expect(swap(invalidParams)).rejects.toThrow("Amount must be a positive number.");
     });
   });
 
@@ -369,9 +372,11 @@ describe("Trading Actions", () => {
         timeframe: "24h",
         tokens: ["SOL", "USDC"]
       });
-      expect(typeof result).toBe("string");
-      // Adjust assertion to match actual output or mock
-      expect(result).not.toBe("Missing chain or address.");
+      expect(typeof result).toBe("object");
+      expect(result).toHaveProperty("message", "Market trends analyzed.");
+      expect(result).toHaveProperty("priceChange7d");
+      expect(result).toHaveProperty("volumeSpike");
+      expect(result).toHaveProperty("trend");
     });
 
     test("should handle market trends with different timeframes", async () => {
@@ -381,7 +386,11 @@ describe("Trading Actions", () => {
         timeframe: "7d",
         tokens: ["SOL"]
       });
-      expect(typeof result).toBe("string");
+      expect(typeof result).toBe("object");
+      expect(result).toHaveProperty("message", "Market trends analyzed.");
+      expect(result).toHaveProperty("priceChange7d");
+      expect(result).toHaveProperty("volumeSpike");
+      expect(result).toHaveProperty("trend");
     });
   });
 

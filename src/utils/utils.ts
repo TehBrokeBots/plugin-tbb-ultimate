@@ -15,12 +15,22 @@ import { Transaction, PublicKey } from "@solana/web3.js";
 jest.mock("axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
+/**
+ * Asserts that a value is a non-empty string.
+ * @param value The value to validate
+ * @param fieldName The name of the field for error reporting
+ * @throws Error if the value is not a non-empty string
+ */
 export function assertNonEmptyString(value: string, fieldName: string) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new Error(`${fieldName} must be a non-empty string.`);
   }
 }
 
+/**
+ * Creates a mock IAgentRuntime for testing purposes.
+ * @returns A mock runtime with jest functions
+ */
 export function createMockRuntime(): IAgentRuntime {
   return {
     on: jest.fn(),
@@ -31,6 +41,11 @@ export function createMockRuntime(): IAgentRuntime {
   } as unknown as IAgentRuntime;
 }
 
+/**
+ * Creates a mock memory object for testing.
+ * @param data Initial data for the mock memory
+ * @returns A mock memory object with get, set, and clear methods
+ */
 export function createMockMemory(data: Record<string, any> = {}) {
   let memoryData = data;
   return {
@@ -45,6 +60,11 @@ export function createMockMemory(data: Record<string, any> = {}) {
   };
 }
 
+/**
+ * Creates a mock state object for testing.
+ * @param initialState Initial state data
+ * @returns A mock state object with getState, setState, and clearState methods
+ */
 export function createMockState(initialState: Record<string, any> = {}) {
   let stateData = initialState;
   return {
@@ -59,6 +79,10 @@ export function createMockState(initialState: Record<string, any> = {}) {
   };
 }
 
+/**
+ * Creates a mock service object for testing.
+ * @returns A mock service with start, stop, status, and event methods
+ */
 export function createMockService() {
   return {
     start: jest.fn(),
@@ -70,6 +94,10 @@ export function createMockService() {
   };
 }
 
+/**
+ * Sets up a complete test environment with runtime, memory, state, service, and event bus.
+ * @returns An object containing all mock components and a resetAllMocks function
+ */
 export function setupActionTest() {
   const runtime = createMockRuntime();
   const memory = createMockMemory();
@@ -89,6 +117,10 @@ export function setupActionTest() {
   };
 }
 
+/**
+ * Creates a valid mock Solana transaction for testing.
+ * @returns A Transaction object with required fields and a mock sign method
+ */
 export function createValidMockTransaction(): Transaction {
   const tx = new Transaction();
   tx.recentBlockhash = "EETB7n4XcQJ3NXTfsq3T3u1EWhLbVjmwZCnfsKv2uvCD";

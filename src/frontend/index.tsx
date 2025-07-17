@@ -177,3 +177,6 @@ export const panels: AgentPanel[] = [
 ];
 
 export * from "./utils";
+
+import TehBrokeBotsPanel from "./TehBrokeBotsPanel";
+export default TehBrokeBotsPanel;

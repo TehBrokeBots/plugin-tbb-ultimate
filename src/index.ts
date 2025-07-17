@@ -514,24 +514,11 @@ const routes = [
 ];
 
 const events = {
-  MESSAGE_RECEIVED: [async (params: Record<string, any>) => console.info("MESSAGE_RECEIVED", Object.keys(params))],
-  VOICE_MESSAGE_RECEIVED: [async (params: Record<string, any>) => console.info("VOICE_MESSAGE_RECEIVED", Object.keys(params))],
-  WORLD_CONNECTED: [async (params: Record<string, any>) => console.info("WORLD_CONNECTED", Object.keys(params))],
-  WORLD_JOINED: [async (params: Record<string, any>) => console.info("WORLD_JOINED", Object.keys(params))],
+  MESSAGE_RECEIVED: [async (params: Record<string, any>) => logger.info("MESSAGE_RECEIVED", [params.message, params.source, params.runtime])],
+  VOICE_MESSAGE_RECEIVED: [async (params: Record<string, any>) => logger.info("VOICE_MESSAGE_RECEIVED", [params.message, params.source, params.runtime])],
+  WORLD_CONNECTED: [async (params: Record<string, any>) => logger.info("WORLD_CONNECTED", [params.world, params.rooms, params.entities, params.source, params.runtime])],
+  WORLD_JOINED: [async (params: Record<string, any>) => logger.info("WORLD_JOINED", [params.world, params.entity, params.rooms, params.entities, params.source, params.runtime])],
 };
-
-// Patch event handlers to call logger.info with event name and params as separate arguments
-const eventNames = ["MESSAGE_RECEIVED", "VOICE_MESSAGE_RECEIVED", "WORLD_CONNECTED", "WORLD_JOINED"] as const;
-eventNames.forEach((eventName) => {
-  type EventKey = keyof typeof events;
-  const key = eventName as EventKey;
-  if (Array.isArray(events[key])) {
-    events[key] = (events[key] as ((params: Record<string, any>) => Promise<void>)[]).map((handler) => async (params: Record<string, any>) => {
-      logger.info(eventName, params);
-      return await handler(params);
-    });
-  }
-});
 
 // Patch action handlers for error logging using logger from '@elizaos/core'
 for (const action of actions) {

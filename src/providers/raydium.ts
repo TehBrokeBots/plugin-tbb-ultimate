@@ -4,6 +4,12 @@ import axios from "axios";
 
 const RAYDIUM_QUOTE_API = "https://api.raydium.io/v2/sdk/quote";
 
+/**
+ * Gets the price for a token pair from Raydium API.
+ * @param inputMint The input token mint address
+ * @param outputMint The output token mint address
+ * @returns The price as a number, or null if not available
+ */
 export async function getPrice(
   inputMint: string,
   outputMint: string,
@@ -20,12 +26,6 @@ export async function getPrice(
   }
 }
 
-// Example for getPoolInfo function:
-export async function getPoolInfo(poolAddress: string) {
-  if (!poolAddress) throw new Error("Pool address is required for Raydium info.");
-  try {
-    // ... actual API call logic ...
-  } catch (e) {
-    throw new Error(`Failed to get pool info from Raydium: ${(e as Error).message}`);
-  }
-}
+export default {
+  getPrice,
+};

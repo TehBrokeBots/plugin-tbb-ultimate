@@ -9,6 +9,10 @@ export interface PoolData {
   tokenB: { mint: string; reserve: string };
 }
 
+/**
+ * Fetches all pools from Orca API.
+ * @returns Array of pool data
+ */
 export async function getPools(): Promise<PoolData[]> {
   if (!ORCA_POOLS_API) throw new Error("ORCA_POOLS_API is not defined.");
   try {
@@ -19,6 +23,12 @@ export async function getPools(): Promise<PoolData[]> {
   }
 }
 
+/**
+ * Calculates the price for a token pair using Orca pools.
+ * @param inputMint The input token mint address
+ * @param outputMint The output token mint address
+ * @returns The calculated price, or null if no pool is found
+ */
 export async function getPrice(
   inputMint: string,
   outputMint: string,
@@ -47,12 +57,7 @@ export async function getPrice(
   }
 }
 
-// Example for getPoolInfo function:
-export async function getPoolInfo(poolAddress: string) {
-  if (!poolAddress) throw new Error("Pool address is required for Orca info.");
-  try {
-    // ... actual API call logic ...
-  } catch (e) {
-    throw new Error(`Failed to get pool info from Orca: ${(e as Error).message}`);
-  }
-}
+export default {
+  getPools,
+  getPrice,
+};
